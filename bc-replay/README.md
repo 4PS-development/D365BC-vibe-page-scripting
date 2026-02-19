@@ -41,10 +41,35 @@ cd bc-replay
 ### What It Does
 
 - Reads `workflow.json` for step definitions, users, and capture/inject rules
+- Supports single script (`"script"`) or multiple scripts (`"scripts"` array) per step
 - Switches credentials per step via `users.json` (gitignored, use `users.sample.json` as template)
 - Captures values using BC's native `copy-value` step (reads from replay log)
 - Injects captured values into the next step's native BC `parameters:` section
 - Generates per-step Playwright reports + workflow summary (HTML + JSON)
+- Auto-opens the HTML report in browser on completion
+
+### Multi-Script Steps
+
+A step can run multiple scripts sequentially under the same user credentials:
+
+```json
+{
+  "id": "prepare-po",
+  "name": "Prepare and Post PO",
+  "user": "purchaser",
+  "scripts": [
+    "./scripts/create-po.yml",
+    "./scripts/post-po.yml"
+  ],
+  "capture": { "po_number": "Purchase Order - No." }
+}
+```
+
+- Each script gets its own Playwright report (`step-{id}/script-{n}/playwright-report/`)
+- Capture scans all scripts in the step (last value wins for duplicates)
+- Failure in any script stops the remaining scripts in that step
+- The HTML report shows sub-rows for each script with individual report links
+- Use `"script"` (string) for single-script steps - fully backward compatible
 
 ### Key Files
 

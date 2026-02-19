@@ -568,6 +568,23 @@ Create `workflow.json`:
 }
 ```
 
+Steps support either `"script"` (string) for a single recording, or `"scripts"` (array) for multiple recordings that run sequentially under the same user:
+
+```json
+{
+  "id": "prepare-and-post",
+  "name": "Prepare and Post PO",
+  "user": "purchaser",
+  "scripts": [
+    "./scripts/create-po.yml",
+    "./scripts/post-po.yml"
+  ],
+  "capture": { "po_number": "Purchase Order - No." }
+}
+```
+
+Multi-script steps: each script gets its own result dir and Playwright report. Capture scans all scripts (last value wins). Failure stops remaining scripts in the step.
+
 ### Step 4: Capture Patch
 
 **Goal:** Read field values from the page after script execution.

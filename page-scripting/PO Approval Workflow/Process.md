@@ -76,6 +76,24 @@ results/
 5. Define steps, users, and capture/inject rules in `workflow.json`
 6. Create `users.json` with credentials for each role (copy from `users.sample.json`)
 
+### Multi-Script Steps
+
+A step can run multiple scripts sequentially under the same user. Use `"scripts"` (array) instead of `"script"` (string):
+
+```json
+{
+  "id": "prepare-and-post",
+  "name": "Prepare and Post PO",
+  "user": "purchaser",
+  "scripts": [
+    "./scripts/create-po.yml",
+    "./scripts/post-po.yml"
+  ]
+}
+```
+
+Each script gets its own Playwright report. Failure in any script stops the remaining scripts in that step.
+
 ## Notes
 
 - Capture uses BC's native `copy-value` step - the orchestrator reads `copiedValue` from the replay log
