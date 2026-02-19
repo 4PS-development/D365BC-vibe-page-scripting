@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BC Workflow Builder</title>
+<style>
+/* ── Reset & Variables ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #F5F5F5; --surface: #ffffff; --border: #e0e0e0; --border-focus: #D0021B;
+  --text: #444444; --text-muted: #888888; --text-light: #999999;
+  --primary: #D0021B; --primary-hover: #a80116; --primary-light: #fde8ea;
+  --success: #22c55e; --success-light: #dcfce7;
+  --warning: #eab308; --warning-light: #fef3c7;
+  --danger: #D0021B; --danger-light: #fee2e2;
+  --header-bg: #1A1A1A; --header-text: #ffffff;
+  --radius: 8px; --shadow: 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.12);
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 14px; color: var(--text);
+}
+body { background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── Header ────────────────────────────────────────────────────────── */
+header {
+  background: var(--header-bg);
+  padding: 12px 24px; display: flex; align-items: center; gap: 16px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2); z-index: 10;
+}
+header h1 { font-size: 18px; font-weight: 600; white-space: nowrap; color: var(--header-text); }
+header h1 span { color: var(--primary); }
+header .text-muted { color: #aaa; }
+.header-actions { margin-left: auto; display: flex; gap: 8px; }
+.header-actions button {
+  background: rgba(255,255,255,0.1); color: var(--header-text);
+  border-color: rgba(255,255,255,0.2);
+}
+.header-actions button:hover { background: rgba(255,255,255,0.2); }
+.header-actions .btn-primary {
+  background: var(--primary); border-color: var(--primary); color: #fff;
+}
+.header-actions .btn-primary:hover { background: var(--primary-hover); }
+
+/* ── Buttons ───────────────────────────────────────────────────────── */
+button, .btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: var(--radius); font-size: 13px;
+  font-weight: 500; cursor: pointer; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); transition: all 0.15s;
+}
+button:hover { background: var(--bg); }
+.btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-success { background: var(--success); color: #fff; border-color: var(--success); }
+.btn-success:hover { opacity: 0.9; }
+.btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+.btn-danger:hover { opacity: 0.9; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-icon { padding: 6px 8px; min-width: 32px; justify-content: center; }
+
+/* ── Main Layout ───────────────────────────────────────────────────── */
+main { flex: 1; display: flex; overflow: hidden; }
+
+/* ── Sidebar ───────────────────────────────────────────────────────── */
+.sidebar {
+  width: 300px; min-width: 300px; background: var(--surface);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column;
+  overflow-y: auto;
+}
+.sidebar-section { padding: 16px; border-bottom: 1px solid var(--border); }
+.sidebar-section h3 {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: #666; margin-bottom: 10px; font-weight: 600;
+}
+.sidebar-section:last-child { border-bottom: none; }
+
+/* ── Form Fields ───────────────────────────────────────────────────── */
+label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; color: var(--text-muted); }
+input, select, textarea {
+  width: 100%; padding: 7px 10px; border: 1px solid var(--border);
+  border-radius: var(--radius); font-size: 13px; color: var(--text);
+  background: var(--surface); transition: border-color 0.15s;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+textarea { resize: vertical; min-height: 50px; }
+.field-group { margin-bottom: 12px; }
+.field-row { display: flex; gap: 8px; align-items: flex-end; }
+
+/* ── Canvas (center) ───────────────────────────────────────────────── */
+.canvas {
+  flex: 1; overflow: auto; position: relative;
+  background: var(--bg);
+}
+.canvas-inner {
+  min-height: 100%; position: relative;
+}
+
+/* ── Swim Lanes ────────────────────────────────────────────────────── */
+.swim-lanes {
+  display: grid;
+  min-width: max-content;
+}
+.lane-headers {
+  display: contents;
+}
+.lane-header {
+  position: sticky; top: 0; z-index: 5;
+  background: #333333; color: #fff; padding: 10px 16px;
+  font-size: 0.8em; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; text-align: center;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid rgba(255,255,255,0.1);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.lane-header:last-child { border-right: none; }
+.lane-header .lane-color {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+.lane-row {
+  display: contents;
+}
+.lane-cell {
+  padding: 12px 16px; min-height: 90px; min-width: 260px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid transparent;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.lane-cell:last-child { border-right: none; }
+.lane-cell.has-card { padding: 12px; }
+
+/* Alternating lane background stripes */
+.lane-cell[data-col-even="true"] { background: rgba(0,0,0,0.018); }
+.lane-connector-cell[data-col-even="true"] { background: rgba(0,0,0,0.018); }
+
+/* ── Connector Row (arrows between steps) ──────────────────────────── */
+.lane-connector {
+  display: contents;
+}
+.lane-connector-cell {
+  border-right: 1px solid var(--border);
+  height: 40px; position: relative;
+}
+.lane-connector-cell:last-child { border-right: none; }
+.connector-svg-overlay {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; overflow: visible;
+}
+
+/* ── Step Number Gutter ────────────────────────────────────────────── */
+.lane-gutter {
+  padding: 10px 8px; text-align: center;
+  font-size: 11px; font-weight: 700; color: var(--text-light);
+  display: flex; align-items: center; justify-content: center;
+  border-right: 1px solid var(--border);
+  min-width: 40px; background: var(--surface);
+}
+.lane-gutter.header {
+  position: sticky; top: 0; z-index: 5;
+  background: #333333; color: #fff; border-bottom: 1px solid var(--border);
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+  border-right: 1px solid rgba(255,255,255,0.1);
+}
+.lane-gutter.connector { height: 40px; background: var(--surface); }
+
+/* ── Add-step row ──────────────────────────────────────────────────── */
+.lane-add-row {
+  grid-column: 1 / -1;
+  display: flex; justify-content: center; padding: 16px;
+}
+
+/* ── Drop Zone ─────────────────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed var(--border); border-radius: var(--radius);
+  padding: 20px; text-align: center; color: var(--text-muted);
+  transition: all 0.2s; cursor: pointer; background: rgba(255,255,255,0.5);
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--primary); background: var(--primary-light);
+  color: var(--primary);
+}
+.drop-zone svg { margin-bottom: 8px; }
+
+/* ── Script Library ────────────────────────────────────────────────── */
+.script-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px; background: var(--bg); border-radius: var(--radius);
+  font-size: 12px; margin-bottom: 6px; border: 1px solid var(--border);
+  cursor: grab; transition: all 0.15s;
+}
+.script-chip:hover { border-color: var(--primary); background: var(--primary-light); }
+.script-chip .script-icon { color: var(--primary); font-size: 14px; flex-shrink: 0; }
+.script-chip .script-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.script-chip .script-meta { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+.script-chip .remove-btn {
+  background: none; border: none; padding: 2px; cursor: pointer;
+  color: var(--text-light); font-size: 14px; line-height: 1;
+}
+.script-chip .remove-btn:hover { color: var(--danger); }
+
+/* ── Step Cards ────────────────────────────────────────────────────── */
+.step-card {
+  width: 100%; max-width: 320px; background: var(--surface); border-radius: var(--radius);
+  box-shadow: var(--shadow); border: 2px solid transparent;
+  transition: all 0.2s; cursor: pointer; position: relative;
+}
+.step-card:hover { box-shadow: var(--shadow-lg); }
+.step-card.selected { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+.step-card-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
+}
+.step-role-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.3px;
+}
+.step-card-header .step-name { flex: 1; font-weight: 600; font-size: 14px; }
+.step-card-header .step-id { font-size: 11px; color: var(--text-muted); font-family: monospace; }
+.step-card-body { padding: 10px 14px; }
+.step-card-body .step-script {
+  font-size: 12px; color: var(--text-muted); font-family: monospace;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.step-card-body .step-badges { display: flex; gap: 6px; margin-top: 6px; }
+.step-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;
+}
+.step-badge.capture { background: var(--success-light); color: var(--success); }
+.step-badge.inject { background: var(--warning-light); color: var(--warning); }
+
+/* ── Add Step Button ───────────────────────────────────────────────── */
+.add-step-btn {
+  border: 2px dashed var(--border); background: rgba(255,255,255,0.5);
+  padding: 14px 24px; border-radius: var(--radius); color: var(--text-muted);
+  font-size: 13px;
+}
+.add-step-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+
+/* ── Right Panel (Properties) ──────────────────────────────────────── */
+.properties-panel {
+  width: 340px; min-width: 340px; background: var(--surface);
+  border-left: 1px solid var(--border); display: flex; flex-direction: column;
+  overflow-y: auto; transition: width 0.2s;
+}
+.properties-panel.hidden { width: 0; min-width: 0; overflow: hidden; padding: 0; }
+.properties-panel h3 {
+  font-size: 15px; padding: 14px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.properties-content { padding: 16px; }
+
+/* ── Users List ────────────────────────────────────────────────────── */
+.user-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; background: var(--bg); border-radius: var(--radius);
+  margin-bottom: 6px; border: 1px solid var(--border);
+}
+.user-color {
+  width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+}
+.user-item .user-name { flex: 1; font-weight: 500; font-size: 13px; }
+.user-item .user-desc { font-size: 11px; color: var(--text-muted); }
+.user-item .remove-btn {
+  background: none; border: none; padding: 2px; cursor: pointer;
+  color: var(--text-light); font-size: 14px; line-height: 1;
+}
+.user-item .remove-btn:hover { color: var(--danger); }
+
+/* ── Capture/Inject Tables ─────────────────────────────────────────── */
+.kv-table { width: 100%; font-size: 12px; margin-top: 6px; }
+.kv-table th { text-align: left; font-weight: 500; color: var(--text-muted); padding: 4px 6px; font-size: 11px; }
+.kv-table td { padding: 3px 6px; }
+.kv-table input { font-size: 12px; padding: 4px 6px; }
+.kv-table .remove-row { cursor: pointer; color: var(--text-light); text-align: center; }
+.kv-table .remove-row:hover { color: var(--danger); }
+.add-row-btn { font-size: 11px; color: var(--primary); cursor: pointer; margin-top: 4px; display: inline-block; font-weight: 600; }
+.add-row-btn:hover { text-decoration: underline; }
+
+/* ── Validation Messages ───────────────────────────────────────────── */
+.validation-msg {
+  padding: 8px 12px; border-radius: var(--radius); font-size: 12px; margin-bottom: 8px;
+}
+.validation-msg.error { background: var(--danger-light); color: var(--danger); }
+.validation-msg.warning { background: var(--warning-light); color: var(--warning); }
+.validation-msg.info { background: var(--primary-light); color: var(--primary); }
+
+/* ── Empty State ───────────────────────────────────────────────────── */
+.empty-state {
+  text-align: center; padding: 60px 40px; color: var(--text-muted);
+}
+.empty-state h2 { font-size: 20px; margin-bottom: 8px; color: var(--text); }
+.empty-state p { font-size: 14px; max-width: 400px; margin: 0 auto 20px; line-height: 1.6; }
+
+/* ── Modal/Dialog ──────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.modal {
+  background: var(--surface); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  width: 500px; max-width: 90vw; max-height: 80vh; overflow-y: auto;
+}
+.modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 16px; }
+.modal-body { padding: 20px; }
+.modal-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ── Toast ─────────────────────────────────────────────────────────── */
+.toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  padding: 10px 16px; border-radius: var(--radius); font-size: 13px;
+  color: #fff; box-shadow: var(--shadow-lg); animation: slideIn 0.3s ease;
+}
+.toast.success { background: var(--success); }
+.toast.error { background: var(--danger); }
+.toast.info { background: var(--primary); }
+@keyframes slideIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+
+/* ── Suggested Items ───────────────────────────────────────────────── */
+.suggestion {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; background: var(--primary-light); border-radius: var(--radius);
+  font-size: 12px; margin-bottom: 4px; cursor: pointer; border: 1px solid transparent;
+}
+.suggestion:hover { border-color: var(--primary); }
+.suggestion .auto-badge { font-size: 9px; background: var(--primary); color: #fff; padding: 1px 5px; border-radius: 3px; }
+
+/* ── Utilities ─────────────────────────────────────────────────────── */
+.hidden { display: none !important; }
+.text-muted { color: var(--text-muted); }
+.text-sm { font-size: 12px; }
+.mt-2 { margin-top: 8px; }
+.mt-4 { margin-top: 16px; }
+.mb-2 { margin-bottom: 8px; }
+.gap-2 { gap: 8px; }
+.flex { display: flex; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+
+/* ── Scrollbar ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-light); }
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────── -->
+<header>
+  <img src="https://www.4ps.nl/wp-content/uploads/sites/2/4PS_Endorsement-2024_RGB_stacked.png" alt="4PS" style="height:32px">
+  <h1><span>BC</span> Workflow Builder</h1>
+  <span class="text-sm text-muted" id="workflow-title-display"></span>
+  <div class="header-actions">
+    <button onclick="importWorkflow()" title="Import existing workflow.json">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 10v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-3M5 5l3-3 3 3M8 2v9"/></svg>
+      Import
+    </button>
+    <button class="btn-primary" onclick="exportWorkflow()" title="Export workflow.json + users.sample.json">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 10v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-3M11 8l-3 3-3-3M8 11V2"/></svg>
+      Export
+    </button>
+    <button onclick="resetAll()" title="Start fresh" style="color:#ff6b6b;">Reset</button>
+  </div>
+</header>
+
+<!-- ── Main ────────────────────────────────────────────────────────── -->
+<main>
+
+  <!-- ── Left Sidebar ──────────────────────────────────────────────── -->
+  <div class="sidebar">
+    <!-- Workflow Settings -->
+    <div class="sidebar-section">
+      <h3>Workflow Settings</h3>
+      <div class="field-group">
+        <label for="wf-name">Name</label>
+        <input id="wf-name" placeholder="e.g. Purchase Order Approval" oninput="updateWorkflowMeta()">
+      </div>
+      <div class="field-group">
+        <label for="wf-desc">Description</label>
+        <textarea id="wf-desc" rows="2" placeholder="What does this workflow do?" oninput="updateWorkflowMeta()"></textarea>
+      </div>
+      <div class="field-group">
+        <label for="wf-url">BC Environment URL</label>
+        <input id="wf-url" placeholder="https://businesscentral.dynamics.com/..." oninput="updateWorkflowMeta()">
+      </div>
+    </div>
+
+    <!-- User Roles -->
+    <div class="sidebar-section">
+      <h3 class="flex justify-between items-center">
+        User Roles
+        <button class="btn-sm" onclick="showAddUserDialog()">+ Add</button>
+      </h3>
+      <div id="users-list"></div>
+      <p class="text-sm text-muted mt-2" id="users-empty">Define the roles involved in this workflow.</p>
+    </div>
+
+    <!-- Script Library -->
+    <div class="sidebar-section">
+      <h3>Script Library</h3>
+      <div id="scripts-drop-zone" class="drop-zone"
+           ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)"
+           ondrop="handleScriptDrop(event)" onclick="openFileChooser()">
+        <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 10v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-3"/><path d="M5 5l3-3 3 3M8 2v9"/></svg>
+        <div>Drop <strong>.yml</strong> scripts here<br><span class="text-sm">or click to browse</span></div>
+      </div>
+      <input type="file" id="file-input" multiple accept=".yml,.yaml" style="display:none" onchange="handleFileInput(event)">
+      <div id="scripts-list" class="mt-2"></div>
+    </div>
+  </div>
+
+  <!-- ── Canvas ────────────────────────────────────────────────────── -->
+  <div class="canvas" id="canvas">
+    <div class="canvas-inner" id="canvas-inner">
+      <!-- Rendered by JS -->
+    </div>
+  </div>
+
+  <!-- ── Right Panel (Step Properties) ─────────────────────────────── -->
+  <div class="properties-panel hidden" id="properties-panel">
+    <h3>
+      <span>Step Properties</span>
+      <button class="btn-sm btn-icon" onclick="closeProperties()" title="Close">&times;</button>
+    </h3>
+    <div class="properties-content" id="properties-content">
+      <!-- Rendered by JS -->
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ── JavaScript ──────────────────────────────────────────────────── -->
+<script>
+/* ════════════════════════════════════════════════════════════════════
+   STATE
+   ════════════════════════════════════════════════════════════════════ */
+
+const ROLE_COLORS = [
+  '#2563eb', '#7c3aed', '#059669', '#d97706', '#dc2626',
+  '#0891b2', '#c026d3', '#65a30d', '#ea580c', '#4f46e5'
+];
+
+let state = {
+  workflow: { name: '', description: '', bc_url: '', steps: [] },
+  users: {},          // roleName -> { description, color }
+  scripts: {},        // filename -> { name, content, parameters:[], captures:[], pages:[] }
+  selectedStepId: null,
+  nextColor: 0
+};
+
+/* ════════════════════════════════════════════════════════════════════
+   YAML PARSER (lightweight, no dependencies)
+   ════════════════════════════════════════════════════════════════════ */
+
+function parseYamlBasic(text) {
+  // Extract key metadata from YAML scripts without a full parser
+  const result = { name: '', description: '', parameters: [], captures: [], parameterDefaults: {} };
+
+  // Name
+  const nameMatch = text.match(/^name:\s*(.+)$/m);
+  if (nameMatch) result.name = nameMatch[1].trim();
+
+  // Description
+  const descMatch = text.match(/^description:\s*(.+)$/m);
+  if (descMatch) result.description = descMatch[1].trim();
+
+  // Parameters section - find parameter names and defaults
+  const paramSection = text.match(/^parameters:\s*\n((?:[ \t]+.+\n?)*)/m);
+  if (paramSection) {
+    const lines = paramSection[1].split('\n');
+    let currentParam = null;
+    for (const line of lines) {
+      const paramMatch = line.match(/^\s{2}(\S[^:]+):\s*$/);
+      if (paramMatch) {
+        currentParam = paramMatch[1].trim();
+        result.parameters.push(currentParam);
+      }
+      if (currentParam) {
+        const defaultMatch = line.match(/^\s+default:\s*(.+)$/);
+        if (defaultMatch) {
+          result.parameterDefaults[currentParam] = defaultMatch[1].trim();
+        }
+      }
+    }
+  }
+
+  // Copy-value steps
+  const copyRegex = /type:\s*copy-value[\s\S]*?name:\s*(.+)/g;
+  let m;
+  while ((m = copyRegex.exec(text)) !== null) {
+    result.captures.push(m[1].trim());
+  }
+
+  return result;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   WORKFLOW META
+   ════════════════════════════════════════════════════════════════════ */
+
+function updateWorkflowMeta() {
+  state.workflow.name = document.getElementById('wf-name').value;
+  state.workflow.description = document.getElementById('wf-desc').value;
+  state.workflow.bc_url = document.getElementById('wf-url').value;
+  document.getElementById('workflow-title-display').textContent = state.workflow.name || '';
+}
+
+function loadMetaToForm() {
+  document.getElementById('wf-name').value = state.workflow.name || '';
+  document.getElementById('wf-desc').value = state.workflow.description || '';
+  document.getElementById('wf-url').value = state.workflow.bc_url || '';
+  document.getElementById('workflow-title-display').textContent = state.workflow.name || '';
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   USERS
+   ════════════════════════════════════════════════════════════════════ */
+
+function showAddUserDialog() {
+  const name = prompt('Role name (e.g. purchaser, approver):');
+  if (!name) return;
+  const key = name.toLowerCase().replace(/\s+/g, '-');
+  if (state.users[key]) { toast('Role already exists', 'error'); return; }
+  const desc = prompt('Description (e.g. "Creates purchase orders"):') || '';
+  addUser(key, desc);
+}
+
+function addUser(key, description, color) {
+  if (!color) {
+    color = ROLE_COLORS[state.nextColor % ROLE_COLORS.length];
+    state.nextColor++;
+  }
+  state.users[key] = { description, color };
+  renderUsers();
+  renderCanvas();
+}
+
+function removeUser(key) {
+  if (!confirm(`Remove role "${key}"? Steps using this role will need updating.`)) return;
+  delete state.users[key];
+  renderUsers();
+  renderCanvas();
+  if (state.selectedStepId) renderProperties();
+}
+
+function renderUsers() {
+  const list = document.getElementById('users-list');
+  const empty = document.getElementById('users-empty');
+  const keys = Object.keys(state.users);
+  empty.classList.toggle('hidden', keys.length > 0);
+
+  list.innerHTML = keys.map(key => {
+    const u = state.users[key];
+    return `<div class="user-item">
+      <div class="user-color" style="background:${u.color}"></div>
+      <div style="flex:1">
+        <div class="user-name">${escHtml(key)}</div>
+        ${u.description ? `<div class="user-desc">${escHtml(u.description)}</div>` : ''}
+      </div>
+      <button class="remove-btn" onclick="removeUser('${escAttr(key)}')" title="Remove">&times;</button>
+    </div>`;
+  }).join('');
+}
+
+function getUserColor(role) {
+  return state.users[role]?.color || '#94a3b8';
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   SCRIPTS
+   ════════════════════════════════════════════════════════════════════ */
+
+function handleDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+function handleDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function openFileChooser() { document.getElementById('file-input').click(); }
+
+function handleScriptDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const files = [...e.dataTransfer.files].filter(f => f.name.match(/\.ya?ml$/i));
+  if (!files.length) { toast('Drop .yml files', 'error'); return; }
+  loadScriptFiles(files);
+}
+
+function handleFileInput(e) {
+  loadScriptFiles([...e.target.files]);
+  e.target.value = '';
+}
+
+async function loadScriptFiles(files) {
+  for (const file of files) {
+    const text = await file.text();
+    const meta = parseYamlBasic(text);
+    state.scripts[file.name] = {
+      name: meta.name || file.name.replace(/\.ya?ml$/i, ''),
+      content: text,
+      parameters: meta.parameters,
+      captures: meta.captures,
+      parameterDefaults: meta.parameterDefaults
+    };
+  }
+  renderScripts();
+  toast(`Loaded ${files.length} script(s)`, 'success');
+}
+
+function removeScript(filename) {
+  delete state.scripts[filename];
+  renderScripts();
+}
+
+function renderScripts() {
+  const list = document.getElementById('scripts-list');
+  const filenames = Object.keys(state.scripts);
+  if (!filenames.length) { list.innerHTML = ''; return; }
+
+  list.innerHTML = filenames.map(fn => {
+    const s = state.scripts[fn];
+    const meta = [];
+    if (s.captures.length) meta.push(`${s.captures.length} capture${s.captures.length > 1 ? 's' : ''}`);
+    if (s.parameters.length) meta.push(`${s.parameters.length} param${s.parameters.length > 1 ? 's' : ''}`);
+    return `<div class="script-chip" draggable="true" ondragstart="dragScript(event, '${escAttr(fn)}')">
+      <span class="script-icon">&#9654;</span>
+      <span class="script-name" title="${escAttr(fn)}">${escHtml(fn)}</span>
+      ${meta.length ? `<span class="script-meta">${meta.join(', ')}</span>` : ''}
+      <button class="remove-btn" onclick="event.stopPropagation(); removeScript('${escAttr(fn)}')" title="Remove">&times;</button>
+    </div>`;
+  }).join('');
+}
+
+function dragScript(e, filename) {
+  e.dataTransfer.setData('text/plain', filename);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   STEPS
+   ════════════════════════════════════════════════════════════════════ */
+
+function addStep(afterIndex) {
+  const idx = state.workflow.steps.length + 1;
+  const step = {
+    id: `step-${idx}`,
+    name: `Step ${idx}`,
+    user: Object.keys(state.users)[0] || '',
+    script: '',
+    depends_on: null,
+    capture: {},
+    inject: {}
+  };
+
+  // Auto-set depends_on to previous step
+  if (state.workflow.steps.length > 0) {
+    step.depends_on = state.workflow.steps[state.workflow.steps.length - 1].id;
+  }
+
+  if (afterIndex !== undefined) {
+    state.workflow.steps.splice(afterIndex + 1, 0, step);
+  } else {
+    state.workflow.steps.push(step);
+  }
+
+  renderCanvas();
+  selectStep(step.id);
+  return step;
+}
+
+function removeStep(stepId) {
+  const idx = state.workflow.steps.findIndex(s => s.id === stepId);
+  if (idx === -1) return;
+  if (!confirm(`Remove step "${state.workflow.steps[idx].name}"?`)) return;
+
+  // Fix dependencies pointing to this step
+  const removedId = state.workflow.steps[idx].id;
+  const prevId = idx > 0 ? state.workflow.steps[idx - 1].id : null;
+  state.workflow.steps.splice(idx, 1);
+  for (const s of state.workflow.steps) {
+    if (s.depends_on === removedId) s.depends_on = prevId;
+  }
+
+  if (state.selectedStepId === stepId) {
+    state.selectedStepId = null;
+    document.getElementById('properties-panel').classList.add('hidden');
+  }
+  renderCanvas();
+}
+
+function moveStep(stepId, direction) {
+  const idx = state.workflow.steps.findIndex(s => s.id === stepId);
+  if (idx === -1) return;
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= state.workflow.steps.length) return;
+
+  const arr = state.workflow.steps;
+  [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+  renderCanvas();
+  renderProperties();
+}
+
+function selectStep(stepId) {
+  state.selectedStepId = stepId;
+  renderCanvas();
+  renderProperties();
+  document.getElementById('properties-panel').classList.remove('hidden');
+}
+
+function closeProperties() {
+  state.selectedStepId = null;
+  document.getElementById('properties-panel').classList.add('hidden');
+  renderCanvas();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   CANVAS RENDERING
+   ════════════════════════════════════════════════════════════════════ */
+
+function renderCanvas() {
+  const inner = document.getElementById('canvas-inner');
+  const roles = Object.keys(state.users);
+
+  if (!state.workflow.steps.length) {
+    inner.innerHTML = `<div class="empty-state">
+      <h2>Build Your Workflow</h2>
+      <p>Start by adding user roles and loading your recorded .yml scripts in the left panel, then add steps to build the flow.</p>
+      <button class="btn-primary" onclick="addStep()">+ Add First Step</button>
+    </div>`;
+    return;
+  }
+
+  // If no users defined yet, show a minimal lane
+  const laneRoles = roles.length ? roles : [...new Set(state.workflow.steps.map(s => s.user).filter(Boolean))];
+  if (!laneRoles.length) laneRoles.push('(unassigned)');
+
+  const colCount = laneRoles.length + 1; // +1 for gutter
+  const gridCols = `40px repeat(${laneRoles.length}, minmax(260px, 1fr))`;
+
+  let html = `<div class="swim-lanes" style="grid-template-columns: ${gridCols}">`;
+
+  // ── Lane Headers ──
+  html += `<div class="lane-headers">`;
+  html += `<div class="lane-gutter header">#</div>`;
+  laneRoles.forEach((role, ci) => {
+    const color = getUserColor(role);
+    html += `<div class="lane-header" style="border-top: 3px solid ${color};">
+      <span class="lane-color" style="background:${color}"></span>
+      ${escHtml(role)}
+    </div>`;
+  });
+  html += `</div>`;
+
+  // ── Step Rows + Connector Rows ──
+  state.workflow.steps.forEach((step, i) => {
+    const color = getUserColor(step.user);
+    const isSelected = step.id === state.selectedStepId;
+    const scriptLabel = step.script || (step.scripts ? step.scripts.join(', ') : 'No script assigned');
+    const captureCount = Object.keys(step.capture || {}).length;
+    const injectCount = Object.keys(step.inject || {}).length;
+    let colIndex = laneRoles.indexOf(step.user);
+    if (colIndex === -1) colIndex = 0; // fallback to first lane
+
+    // Step row
+    html += `<div class="lane-row">`;
+    html += `<div class="lane-gutter">${i + 1}</div>`;
+    laneRoles.forEach((role, ci) => {
+      const isEven = ci % 2 === 1;
+      if (ci === colIndex) {
+        html += `<div class="lane-cell has-card" data-col-even="${isEven}">`;
+        html += `<div class="step-card ${isSelected ? 'selected' : ''}" onclick="selectStep('${escAttr(step.id)}')"
+                      ondragover="event.preventDefault()" ondrop="handleStepDrop(event, ${i})"
+                      style="border-left: 3px solid ${color};" data-step-index="${i}">
+          <div class="step-card-header">
+            <span class="step-name">${escHtml(step.name)}</span>
+            <span class="step-id">${escHtml(step.id)}</span>
+          </div>
+          <div class="step-card-body">
+            <div class="step-script">${escHtml(scriptLabel)}</div>
+            <div class="step-badges">
+              ${captureCount ? `<span class="step-badge capture">&#8593; ${captureCount} capture${captureCount > 1 ? 's' : ''}</span>` : ''}
+              ${injectCount ? `<span class="step-badge inject">&#8595; ${injectCount} inject${injectCount > 1 ? 's' : ''}</span>` : ''}
+            </div>
+          </div>
+        </div>`;
+        html += `</div>`;
+      } else {
+        html += `<div class="lane-cell" data-col-even="${isEven}"></div>`;
+      }
+    });
+    html += `</div>`;
+
+    // Connector row (arrow between this step and the next)
+    if (i < state.workflow.steps.length - 1) {
+      const nextStep = state.workflow.steps[i + 1];
+      let nextColIndex = laneRoles.indexOf(nextStep.user);
+      if (nextColIndex === -1) nextColIndex = 0;
+      const fromCol = colIndex;
+      const toCol = nextColIndex;
+
+      html += `<div class="lane-connector">`;
+      html += `<div class="lane-gutter connector"></div>`;
+      laneRoles.forEach((role, ci) => {
+        const isEven = ci % 2 === 1;
+        html += `<div class="lane-connector-cell" data-col-even="${isEven}">`;
+
+        // Draw arrow elements in cells that are in the path
+        const minC = Math.min(fromCol, toCol);
+        const maxC = Math.max(fromCol, toCol);
+
+        if (fromCol === toCol && ci === fromCol) {
+          // Straight down arrow (same lane)
+          html += `<svg style="position:absolute;left:50%;top:0;transform:translateX(-50%);" width="20" height="40" viewBox="0 0 20 40">
+            <path d="M10 0 V32 M5 27 L10 35 L15 27" stroke="${getUserColor(laneRoles[fromCol])}" stroke-width="2" fill="none" opacity="0.6"/>
+          </svg>`;
+        } else if (fromCol !== toCol) {
+          // Cross-lane arrow: draw parts
+          if (ci === fromCol) {
+            // Start: vertical line going down, then horizontal
+            const goRight = toCol > fromCol;
+            html += `<svg style="position:absolute;top:0;left:0;width:100%;height:100%;" viewBox="0 0 100 40" preserveAspectRatio="none">
+              <path d="M50 0 V20 ${goRight ? 'H100' : 'H0'}" stroke="${getUserColor(laneRoles[fromCol])}" stroke-width="2" fill="none" opacity="0.5" vector-effect="non-scaling-stroke"/>
+            </svg>`;
+          } else if (ci === toCol) {
+            // End: horizontal line coming in, then down with arrow
+            const fromRight = fromCol > toCol;
+            html += `<svg style="position:absolute;top:0;left:0;width:100%;height:100%;" viewBox="0 0 100 40" preserveAspectRatio="none">
+              <path d="${fromRight ? 'M100' : 'M0'} 20 H50 V40" stroke="${getUserColor(laneRoles[toCol])}" stroke-width="2" fill="none" opacity="0.5" vector-effect="non-scaling-stroke"/>
+            </svg>`;
+            // Arrowhead
+            html += `<svg style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);" width="16" height="10" viewBox="0 0 16 10">
+              <path d="M3 0 L8 8 L13 0" stroke="${getUserColor(laneRoles[toCol])}" stroke-width="2" fill="none" opacity="0.5"/>
+            </svg>`;
+          } else if (ci > minC && ci < maxC) {
+            // Middle: horizontal pass-through
+            html += `<svg style="position:absolute;top:0;left:0;width:100%;height:100%;" viewBox="0 0 100 40" preserveAspectRatio="none">
+              <path d="M0 20 H100" stroke="var(--text-light)" stroke-width="2" fill="none" opacity="0.3" vector-effect="non-scaling-stroke"/>
+            </svg>`;
+          }
+        }
+
+        html += `</div>`;
+      });
+      html += `</div>`;
+    }
+  });
+
+  // Add-step button row
+  html += `<div class="lane-add-row">
+    <button class="add-step-btn" onclick="addStep()">+ Add Step</button>
+  </div>`;
+
+  html += `</div>`; // close swim-lanes
+  inner.innerHTML = html;
+}
+
+function handleStepDrop(e, stepIndex) {
+  e.preventDefault();
+  const filename = e.dataTransfer.getData('text/plain');
+  if (filename && state.scripts[filename]) {
+    const step = state.workflow.steps[stepIndex];
+    step.script = `./scripts/${filename}`;
+    // Auto-populate capture from script metadata
+    const meta = state.scripts[filename];
+    if (meta.captures.length && !Object.keys(step.capture || {}).length) {
+      step.capture = {};
+      for (const cap of meta.captures) {
+        const varName = cap.replace(/\s+/g, '_').toLowerCase();
+        step.capture[varName] = cap;
+      }
+    }
+    renderCanvas();
+    if (state.selectedStepId === step.id) renderProperties();
+    toast(`Assigned "${filename}" to step`, 'success');
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   PROPERTIES PANEL
+   ════════════════════════════════════════════════════════════════════ */
+
+function renderProperties() {
+  const step = state.workflow.steps.find(s => s.id === state.selectedStepId);
+  if (!step) return;
+
+  const panel = document.getElementById('properties-content');
+  const userOptions = Object.keys(state.users).map(k =>
+    `<option value="${escAttr(k)}" ${step.user === k ? 'selected' : ''}>${escHtml(k)}</option>`
+  ).join('');
+
+  const scriptOptions = Object.keys(state.scripts).map(fn =>
+    `<option value="./scripts/${escAttr(fn)}" ${step.script === `./scripts/${fn}` ? 'selected' : ''}>${escHtml(fn)}</option>`
+  ).join('');
+
+  const depOptions = state.workflow.steps
+    .filter(s => s.id !== step.id)
+    .map(s => `<option value="${escAttr(s.id)}" ${step.depends_on === s.id ? 'selected' : ''}>${escHtml(s.name)} (${s.id})</option>`)
+    .join('');
+
+  // Determine available captures from earlier steps
+  const availableCaptures = [];
+  for (const s of state.workflow.steps) {
+    if (s.id === step.id) break;
+    for (const [varName, field] of Object.entries(s.capture || {})) {
+      availableCaptures.push({ stepId: s.id, varName, field });
+    }
+  }
+
+  // Detect suggested captures/injects from the assigned script
+  const scriptFile = step.script?.replace('./scripts/', '');
+  const scriptMeta = state.scripts[scriptFile];
+  let suggestions = '';
+
+  if (scriptMeta) {
+    // Suggest captures based on copy-value in script
+    if (scriptMeta.captures.length && !Object.keys(step.capture || {}).length) {
+      suggestions += `<div class="validation-msg info">
+        <strong>Auto-detected captures:</strong> ${scriptMeta.captures.map(c => escHtml(c)).join(', ')}
+        <br><span class="add-row-btn" onclick="autoFillCaptures('${escAttr(step.id)}')">Apply suggested captures</span>
+      </div>`;
+    }
+    // Suggest injects based on parameters in script
+    if (scriptMeta.parameters.length && !Object.keys(step.inject || {}).length && availableCaptures.length) {
+      suggestions += `<div class="validation-msg info">
+        <strong>Script expects parameters:</strong> ${scriptMeta.parameters.map(p => escHtml(p)).join(', ')}
+        <br><span class="add-row-btn" onclick="autoFillInjects('${escAttr(step.id)}')">Auto-map from available captures</span>
+      </div>`;
+    }
+  }
+
+  // Build capture rows
+  const captureRows = Object.entries(step.capture || {}).map(([varName, field], i) =>
+    `<tr>
+      <td><input value="${escAttr(varName)}" onchange="updateCapture('${escAttr(step.id)}', ${i}, 'key', this.value)" placeholder="variable_name"></td>
+      <td><input value="${escAttr(field)}" onchange="updateCapture('${escAttr(step.id)}', ${i}, 'value', this.value)" placeholder="Page - Field"></td>
+      <td class="remove-row" onclick="removeCapture('${escAttr(step.id)}', ${i})">&times;</td>
+    </tr>`
+  ).join('');
+
+  // Build inject rows
+  const injectRows = Object.entries(step.inject || {}).map(([field, ref], i) =>
+    `<tr>
+      <td><input value="${escAttr(field)}" onchange="updateInject('${escAttr(step.id)}', ${i}, 'key', this.value)" placeholder="Page.Field"></td>
+      <td><input value="${escAttr(ref)}" onchange="updateInject('${escAttr(step.id)}', ${i}, 'value', this.value)" placeholder="{capture.step.var}"></td>
+      <td class="remove-row" onclick="removeInject('${escAttr(step.id)}', ${i})">&times;</td>
+    </tr>`
+  ).join('');
+
+  panel.innerHTML = `
+    <div class="field-group">
+      <label>Step ID</label>
+      <input value="${escAttr(step.id)}" onchange="updateStepField('${escAttr(step.id)}', 'id', this.value)">
+    </div>
+    <div class="field-group">
+      <label>Step Name</label>
+      <input value="${escAttr(step.name)}" onchange="updateStepField('${escAttr(step.id)}', 'name', this.value)">
+    </div>
+    <div class="field-group">
+      <label>User Role</label>
+      <select onchange="updateStepField('${escAttr(step.id)}', 'user', this.value)">
+        <option value="">-- select role --</option>
+        ${userOptions}
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Script (.yml)</label>
+      <select onchange="updateStepField('${escAttr(step.id)}', 'script', this.value)">
+        <option value="">-- select script --</option>
+        ${scriptOptions}
+      </select>
+      <span class="text-sm text-muted">Or drag a script from the library onto the step card.</span>
+    </div>
+    <div class="field-group">
+      <label>Depends On</label>
+      <select onchange="updateStepField('${escAttr(step.id)}', 'depends_on', this.value || null)">
+        <option value="">-- none --</option>
+        ${depOptions}
+      </select>
+    </div>
+
+    ${suggestions}
+
+    <div class="mt-4">
+      <label class="flex justify-between items-center">
+        <strong>Captures</strong>
+        <span class="add-row-btn" onclick="addCapture('${escAttr(step.id)}')">+ Add</span>
+      </label>
+      <span class="text-sm text-muted">Values this step captures (via copy-value) for later steps.</span>
+      ${captureRows ? `<table class="kv-table mt-2">
+        <tr><th>Variable</th><th>copy-value name</th><th></th></tr>
+        ${captureRows}
+      </table>` : '<div class="text-sm text-muted mt-2">No captures defined.</div>'}
+    </div>
+
+    <div class="mt-4">
+      <label class="flex justify-between items-center">
+        <strong>Injects</strong>
+        <span class="add-row-btn" onclick="addInject('${escAttr(step.id)}')">+ Add</span>
+      </label>
+      <span class="text-sm text-muted">Values injected into this script's parameters from earlier captures.</span>
+      ${availableCaptures.length ? `<div class="text-sm mt-2" style="color:var(--success)">Available: ${availableCaptures.map(c => `{capture.${c.stepId}.${c.varName}}`).join(', ')}</div>` : ''}
+      ${injectRows ? `<table class="kv-table mt-2">
+        <tr><th>Parameter (Page.Field)</th><th>Source</th><th></th></tr>
+        ${injectRows}
+      </table>` : '<div class="text-sm text-muted mt-2">No injects defined.</div>'}
+    </div>
+
+    <div class="mt-4 flex gap-2">
+      <button class="btn-sm" onclick="moveStep('${escAttr(step.id)}', -1)">&#8593; Move Up</button>
+      <button class="btn-sm" onclick="moveStep('${escAttr(step.id)}', 1)">&#8595; Move Down</button>
+      <button class="btn-sm btn-danger" onclick="removeStep('${escAttr(step.id)}')" style="margin-left:auto">Delete</button>
+    </div>
+  `;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   STEP FIELD UPDATES
+   ════════════════════════════════════════════════════════════════════ */
+
+function updateStepField(stepId, field, value) {
+  const step = state.workflow.steps.find(s => s.id === stepId);
+  if (!step) return;
+
+  if (field === 'id') {
+    // Update references
+    const oldId = step.id;
+    for (const s of state.workflow.steps) {
+      if (s.depends_on === oldId) s.depends_on = value;
+      // Update inject references
+      for (const [k, v] of Object.entries(s.inject || {})) {
+        if (v.includes(`capture.${oldId}.`)) {
+          s.inject[k] = v.replace(`capture.${oldId}.`, `capture.${value}.`);
+        }
+      }
+    }
+    state.selectedStepId = value;
+  }
+
+  step[field] = value;
+
+  // If script changed, auto-fill captures/injects
+  if (field === 'script') {
+    const fn = value.replace('./scripts/', '');
+    const meta = state.scripts[fn];
+    if (meta && meta.captures.length && !Object.keys(step.capture || {}).length) {
+      step.capture = {};
+      for (const cap of meta.captures) {
+        const varName = cap.replace(/[^a-zA-Z0-9]+/g, '_').toLowerCase().replace(/^_|_$/g, '');
+        step.capture[varName] = cap;
+      }
+    }
+  }
+
+  renderCanvas();
+  renderProperties();
+}
+
+function updateCapture(stepId, index, part, value) {
+  const step = state.workflow.steps.find(s => s.id === stepId);
+  if (!step || !step.capture) return;
+  const entries = Object.entries(step.capture);
+  if (part === 'key') {
+    const oldKey = entries[index][0];
+    const val = entries[index][1];
+    step.capture = {};
+    entries.forEach(([k, v], i) => {
+      step.capture[i === index ? value : k] = v;
+    });
+  } else {
+    entries[index][1] = value;
+    step.capture = Object.fromEntries(entries);
+  }
+  renderCanvas();
+}
+
+function removeCapture(stepId, index) {
+  const step = state.workflow.steps.find(s => s.id === stepId);
+  if (!step) return;
+  const entries = Object.entries(step.capture || {});
+  entries.splice(index, 1);
+  step.capture = Object.fromEntries(entries);
+  renderCanvas();
+  renderProperties();
+}
+
+function addCapture(stepId) {
+  const step = state.workflow.steps.find(s => s.id === stepId);
+  if (!step) return;
+  if (!step.capture) step.capture = {};
+  step.capture[`var_${Object.keys(step.capture).length + 1}`] = '';
+  renderProperties();
+}
+
+function autoFillCaptures(stepId) {
+  const step = state.workflow.steps.find(s => s.id === stepId);
+  if (!step) return;
+  const fn = step.script?.replace('./scripts/', '');
+  const meta = state.scripts[fn];
+  if (!meta) return;
+  step.capture = {};
+  for (const cap of meta.captures) {
+    const varName = cap.replace(/[^a-zA-Z0-9]+/g, '_').toLowerCase().replace(/^_|_$/g, '');
+    step.capture[varName] = cap;
+  }
+  renderCanvas();
+  renderProperties();
+  toast('Captures populated from script', 'success');
+}
+
+function updateInject(stepId, index, part, value) {
+  const step = state.workflow.steps.find(s => s.id === stepId);
+  if (!step || !step.inject) return;
+  const entries = Object.entries(step.inject);
+  if (part === 'key') {
+    entries[index][0] = value;
+    step.inject = Object.fromEntries(entries);
+  } else {
+    entries[index][1] = value;
+    step.inject = Object.fromEntries(entries);
+  }
+  renderCanvas();
+}
+
+function removeInject(stepId, index) {
+  const step = state.workflow.steps.find(s => s.id === stepId);
+  if (!step) return;
+  const entries = Object.entries(step.inject || {});
+  entries.splice(index, 1);
+  step.inject = Object.fromEntries(entries);
+  renderCanvas();
+  renderProperties();
+}
+
+function addInject(stepId) {
+  const step = state.workflow.steps.find(s => s.id === stepId);
+  if (!step) return;
+  if (!step.inject) step.inject = {};
+  step.inject[''] = '';
+  renderProperties();
+}
+
+function autoFillInjects(stepId) {
+  const step = state.workflow.steps.find(s => s.id === stepId);
+  if (!step) return;
+  const fn = step.script?.replace('./scripts/', '');
+  const meta = state.scripts[fn];
+  if (!meta) return;
+
+  // Collect available captures from earlier steps
+  const available = [];
+  for (const s of state.workflow.steps) {
+    if (s.id === stepId) break;
+    for (const [varName] of Object.entries(s.capture || {})) {
+      available.push({ stepId: s.id, varName });
+    }
+  }
+
+  step.inject = {};
+  for (const param of meta.parameters) {
+    // Try to match parameter to an available capture
+    if (available.length > 0) {
+      const match = available.shift();
+      step.inject[param] = `{capture.${match.stepId}.${match.varName}}`;
+    } else {
+      step.inject[param] = '';
+    }
+  }
+
+  renderCanvas();
+  renderProperties();
+  toast('Injects auto-mapped from captures', 'success');
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   IMPORT
+   ════════════════════════════════════════════════════════════════════ */
+
+function importWorkflow() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.multiple = true;
+  input.onchange = async (e) => {
+    for (const file of e.target.files) {
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        if (file.name === 'workflow.json' || data.steps) {
+          state.workflow.name = data.name || '';
+          state.workflow.description = data.description || '';
+          state.workflow.bc_url = data.bc_url || '';
+          state.workflow.steps = (data.steps || []).map(s => ({
+            id: s.id || '',
+            name: s.name || '',
+            user: s.user || '',
+            script: s.script || '',
+            scripts: s.scripts || null,
+            depends_on: s.depends_on || null,
+            capture: s.capture || {},
+            inject: s.inject || {}
+          }));
+
+          // Auto-create user roles from steps
+          for (const step of state.workflow.steps) {
+            if (step.user && !state.users[step.user]) {
+              addUser(step.user, '');
+            }
+          }
+          loadMetaToForm();
+          toast('Loaded workflow.json', 'success');
+        }
+
+        if (file.name.includes('users') && !data.steps) {
+          // It's a users file
+          for (const [role, info] of Object.entries(data)) {
+            if (!state.users[role]) {
+              addUser(role, info.description || '');
+            } else {
+              state.users[role].description = info.description || state.users[role].description;
+            }
+          }
+          renderUsers();
+          toast('Loaded users config', 'success');
+        }
+      } catch (err) {
+        toast(`Error reading ${file.name}: ${err.message}`, 'error');
+      }
+    }
+    renderCanvas();
+  };
+  input.click();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   EXPORT
+   ════════════════════════════════════════════════════════════════════ */
+
+function exportWorkflow() {
+  // Validate
+  const issues = validate();
+  if (issues.errors.length) {
+    toast(`Fix ${issues.errors.length} error(s) before exporting`, 'error');
+    return;
+  }
+
+  // Build workflow.json
+  const wf = {
+    name: state.workflow.name,
+    description: state.workflow.description,
+    bc_url: state.workflow.bc_url,
+    steps: state.workflow.steps.map(s => {
+      const step = { id: s.id, name: s.name, user: s.user };
+      if (s.scripts && s.scripts.length > 1) {
+        step.scripts = s.scripts;
+      } else {
+        step.script = s.script;
+      }
+      if (s.depends_on) step.depends_on = s.depends_on;
+      if (Object.keys(s.capture || {}).length) step.capture = s.capture;
+      if (Object.keys(s.inject || {}).length) step.inject = s.inject;
+      return step;
+    })
+  };
+
+  // Build users.sample.json
+  const users = {};
+  for (const [role, info] of Object.entries(state.users)) {
+    users[role] = {
+      username: `${role}@yourtenant.onmicrosoft.com`,
+      password: 'your-password-here',
+      description: info.description || '',
+      mfa_seed: 'your-totp-seed-here'
+    };
+  }
+
+  downloadFile('workflow.json', JSON.stringify(wf, null, 2));
+  setTimeout(() => downloadFile('users.sample.json', JSON.stringify(users, null, 2)), 300);
+
+  if (issues.warnings.length) {
+    toast(`Exported with ${issues.warnings.length} warning(s)`, 'info');
+  } else {
+    toast('Exported workflow.json + users.sample.json', 'success');
+  }
+}
+
+function downloadFile(name, content) {
+  const blob = new Blob([content], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   VALIDATION
+   ════════════════════════════════════════════════════════════════════ */
+
+function validate() {
+  const errors = [], warnings = [];
+
+  if (!state.workflow.name) warnings.push('Workflow name is empty');
+  if (!state.workflow.bc_url) errors.push('BC URL is required');
+  if (!state.workflow.steps.length) errors.push('Add at least one step');
+
+  const ids = new Set();
+  for (const step of state.workflow.steps) {
+    if (!step.id) errors.push('Step has empty ID');
+    if (ids.has(step.id)) errors.push(`Duplicate step ID: ${step.id}`);
+    ids.add(step.id);
+
+    if (!step.user) errors.push(`Step "${step.name}" has no user role`);
+    else if (!state.users[step.user]) warnings.push(`Step "${step.name}" uses undefined role "${step.user}"`);
+
+    if (!step.script && !(step.scripts && step.scripts.length)) warnings.push(`Step "${step.name}" has no script`);
+
+    if (step.depends_on && !ids.has(step.depends_on) && !state.workflow.steps.find(s => s.id === step.depends_on)) {
+      errors.push(`Step "${step.name}" depends on unknown step "${step.depends_on}"`);
+    }
+  }
+
+  return { errors, warnings };
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   RESET
+   ════════════════════════════════════════════════════════════════════ */
+
+function resetAll() {
+  if (!confirm('Clear everything and start fresh?')) return;
+  state = {
+    workflow: { name: '', description: '', bc_url: '', steps: [] },
+    users: {},
+    scripts: {},
+    selectedStepId: null,
+    nextColor: 0
+  };
+  loadMetaToForm();
+  renderUsers();
+  renderScripts();
+  renderCanvas();
+  document.getElementById('properties-panel').classList.add('hidden');
+  toast('Reset complete', 'info');
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   UTILITIES
+   ════════════════════════════════════════════════════════════════════ */
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+function toast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   INIT
+   ════════════════════════════════════════════════════════════════════ */
+
+renderCanvas();
+renderUsers();
+renderScripts();
+</script>
+</body>
+</html>
