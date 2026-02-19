@@ -1,0 +1,26 @@
+{
+  "name": "Purchase Order Approval Process",
+  "description": "Multi-user workflow: Purchaser creates PO, Approver approves it",
+  "bc_url": "https://4psconstruct.bc.dynamics.com/34b93528-e939-4e0b-a370-e6b753ae2514/latestrelease",
+  "steps": [
+    {
+      "id": "create-po",
+      "name": "Create Purchase Order",
+      "user": "purchaser",
+      "script": "./scripts/create-po.yml",
+      "capture": {
+        "po_number": "Purchase Order - No."
+      }
+    },
+    {
+      "id": "approve-po",
+      "name": "Check PO with approver",
+      "user": "approver",
+      "script": "./scripts/Check PO with approver.yml",
+      "depends_on": "create-po",
+      "inject": {
+        "Purchase Order List.No.": "{capture.create-po.po_number}"
+      }
+    }
+  ]
+}

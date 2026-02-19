@@ -23,6 +23,42 @@ npx playwright show-report
 
 ---
 
+## 👥 Multi-User Workflow Orchestrator
+
+**Problem:** Real BC processes span multiple users - one creates a PO, another approves it, a third receives goods.
+
+**Solution:** The workflow orchestrator runs sequential bc-replay steps, each with different user credentials, passing captured values between steps.
+
+### Quick Start
+
+```powershell
+# 1. Create users.json with credentials for each role (see users.sample.json)
+# 2. Run the workflow
+cd bc-replay
+.\Run-BCWorkflow.ps1 -WorkflowPath "..\page-scripting\PO Approval Workflow"
+```
+
+### What It Does
+
+- Reads `workflow.json` for step definitions, users, and capture/inject rules
+- Switches credentials per step via `users.json` (gitignored, use `users.sample.json` as template)
+- Captures values using BC's native `copy-value` step (reads from replay log)
+- Injects captured values into the next step's native BC `parameters:` section
+- Generates per-step Playwright reports + workflow summary (HTML + JSON)
+
+### Key Files
+
+| File | Purpose |
+|------|---------|-------|
+| `Run-BCWorkflow.ps1` | Orchestrator - executes workflow steps sequentially |
+| `Invoke-YamlPreprocess.ps1` | Updates native BC parameter `default:` values in YAML |
+| `New-WorkflowReport.ps1` | Generates workflow summary report (HTML + JSON) |
+
+📖 See [PO Approval Workflow](../page-scripting/PO%20Approval%20Workflow/) for a working example  
+📖 See [MULTI-USER-WORKFLOW-PLAN.md](../docs/MULTI-USER-WORKFLOW-PLAN.md) for architecture details
+
+---
+
 ## 🔐 MFA TOTP Support (NEW!)
 
 **Problem:** Your organization requires MFA on all accounts, blocking automation.
@@ -58,6 +94,8 @@ npx playwright show-report
 |-------|---------|
 | **[BC_REPLAY_QUICK_START.md](BC_REPLAY_QUICK_START.md)** | Standard bc-replay usage (no MFA) |
 | **[bc-replay-mfa-solution/](bc-replay-mfa-solution/)** | Complete MFA setup and usage |
+| **[bc-replay-capture-solution/](bc-replay-capture-solution/)** | Value capture (superseded by native `copy-value`) |
+| **[MULTI-USER-WORKFLOW-PLAN.md](../docs/MULTI-USER-WORKFLOW-PLAN.md)** | Workflow architecture and plan |
 
 ---
 
@@ -73,14 +111,18 @@ npx playwright show-report
 
 ---
 
-## � What's in This Folder
+## What's in This Folder
 
 ```
 bc-replay/
-├── bc-replay-mfa-solution/      # Complete MFA solution (start here for MFA)
+├── Run-BCWorkflow.ps1           # Multi-user workflow orchestrator
+├── Invoke-YamlPreprocess.ps1    # YAML parameter preprocessor (updates BC native defaults)
+├── New-WorkflowReport.ps1       # Workflow summary report generator
+├── bc-replay-mfa-solution/      # MFA TOTP patch (for MFA accounts)
+├── bc-replay-capture-solution/  # Value capture (superseded by native copy-value)
 ├── BC_REPLAY_QUICK_START.md     # Standard bc-replay guide
 ├── README.md                    # This file
-└── setup-local-env.ps1.template # Credential template (for MFA setup)
+└── setup-local-env.ps1.template # Credential template
 ```
 
 **Development/utility files:**
@@ -90,4 +132,4 @@ bc-replay/
 
 ---
 
-**Ready to automate BC testing with MFA?** Start here: **[bc-replay-mfa-solution/README.md](bc-replay-mfa-solution/README.md)** 🚀
+**Ready to automate BC testing?** Start here: **[BC_REPLAY_QUICK_START.md](BC_REPLAY_QUICK_START.md)**

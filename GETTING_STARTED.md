@@ -33,9 +33,15 @@ Get up and running with BC page automation in 15 minutes.
 - **`page-scripting/`** - Scripts and automation
   - PowerShell generators
   - Project folders with BASE recordings and data files
+  - Workflow projects (e.g., `PO Approval Workflow/`) with multi-user step definitions
   
 - **`bc-replay/`** - Test execution
   - Test runner and Playwright environment
+  - Workflow orchestrator (`Run-BCWorkflow.ps1`)
+  - YAML preprocessor and report generator
+
+- **`docs/`** - Architecture and planning
+  - Multi-user workflow plan and research
 
 ## 🎯 Create Your First Variants (10 Minutes)
 
@@ -78,9 +84,37 @@ cd ..\bc-replay
 - **[bc-replay/BC_REPLAY_QUICK_START.md](bc-replay/BC_REPLAY_QUICK_START.md)** - Test execution guide
 - **[SECURITY.md](SECURITY.md)** - Security configuration
 - **`.github/copilot-instructions.md`** - YAML patterns and examples
+- **Multi-user workflows** - See below
 - **Example projects** - Study the working examples in `page-scripting/`
 
-## � Quick Troubleshooting
+## 👥 Multi-User Workflows
+
+Once you're comfortable with single-user variant generation, you can orchestrate multi-user workflows where different BC users act in sequence.
+
+### Concept
+
+```
+Purchaser creates PO  →  Approver approves PO  →  Warehouse receives goods
+   (User A)                   (User B)                  (User C)
+```
+
+Each step runs as a separate bc-replay invocation with its own credentials. Captured values (like a PO number) are injected into the next step's BC native `parameters:` section.
+
+### Quick Start
+
+1. **Study the example** - See `page-scripting/PO Approval Workflow/` for the structure
+2. **Define users** - Create `users.json` with credentials for each role
+3. **Define workflow** - Create `workflow.json` with steps, scripts, and capture/inject rules
+4. **Record scripts** - Record scripts with BC's native parameter support (`Parameters.'Page.Field'`)
+5. **Run** -
+   ```powershell
+   cd bc-replay
+   .\Run-BCWorkflow.ps1 -WorkflowPath "..\page-scripting\PO Approval Workflow"
+   ```
+
+See [docs/MULTI-USER-WORKFLOW-PLAN.md](docs/MULTI-USER-WORKFLOW-PLAN.md) for full architecture details.
+
+## Quick Troubleshooting
 
 | Issue | Check |
 |-------|-------|

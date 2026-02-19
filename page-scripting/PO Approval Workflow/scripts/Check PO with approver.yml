@@ -1,0 +1,85 @@
+telemetryId: 39cd136b-2ba8-4a45-b9c0-a2c9b3aa5f57
+steps:
+  - type: invoke
+    target:
+      - page: Business Manager Role Center
+        runtimeRef: b0
+      - part: Control16
+      - page: O365 Activities
+      - action: Purchase Orders
+    description: Invoke <caption>Inkooporders</caption>
+  - type: page-shown
+    source:
+      page: Purchase Order List
+    modal: false
+    runtimeId: b1s6
+    description: Page <caption>Inkooporders</caption> was shown.
+  - type: invoke
+    target:
+      - page: Purchase Order List
+        runtimeRef: b7yw
+      - repeater: Control1
+      - field: No.
+    invokeType: FilterByColumn
+    parameters:
+      UseAdvancedFiltering: true
+    description: Invoke FilterByColumn on <caption>Nr.</caption>
+  - type: input
+    target:
+      - page: Purchase Order List
+        runtimeRef: b7yw
+      - scope: filter
+        field: No.
+    isFilterAsYouType: true
+    description: Input <value>Parameters.'Purchase Order List.No.'</value> into
+      <caption>Nr.</caption>
+    value: =Parameters.'Purchase Order List.No.'
+  - type: close-page
+    target:
+      - page: lookup:No.
+        runtimeRef: ba89
+    description: Close page <caption>Selecteren</caption>
+  - type: input
+    target:
+      - page: Purchase Order List
+        runtimeRef: b7yw
+      - scope: filter
+        field: No.
+    description: Input <value>Parameters.'Purchase Order List.No.'</value> into
+      <caption>Nr.</caption>
+    value: =Parameters.'Purchase Order List.No.'
+  - type: invoke
+    target:
+      - page: Purchase Order List
+        runtimeRef: b7yw
+      - repeater: Control1
+    invokeType: Edit
+    parameters:
+      AlwaysCommit: false
+    description: Invoke row on <caption>Control1</caption>
+  - type: page-shown
+    source:
+      page: Purchase Order
+    modal: false
+    runtimeId: ba8a
+    description: Page <caption>Inkooporder</caption> was shown.
+  - type: validate
+    target:
+      - page: Purchase Order
+        runtimeRef: b256
+      - part: PurchLines
+      - page: Purchase Order Subform
+      - repeater: Control1
+      - field: Line Amount
+    value: =100
+    operation: =
+    description: <caption>Regelbedrag Excl. btw</caption> <operation>is</operation>
+      <value>100</value> valideren
+name: Check PO with approver
+description: Test recording
+start:
+  profile: BUSINESS MANAGER
+parameters:
+  Purchase Order List.No.:
+    type: string
+    default: test123

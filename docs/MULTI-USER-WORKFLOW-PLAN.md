@@ -1,6 +1,6 @@
 # Multi-User Workflow Orchestration & Result Capture Plan
 
-> **Status:** Research & Planning  
+> **Status:** Complete (tested end-to-end)  
 > **Date:** February 2026  
 > **Scope:** Evolving from single-user, single-script execution to orchestrated multi-user workflows with state passing between steps
 
@@ -521,14 +521,14 @@ Create `users.json`:
 ```json
 {
   "purchaser": {
-    "username_env": "BC_USER_PURCHASER",
-    "password_env": "BC_PASS_PURCHASER",
-    "mfa_seed_env": "BC_MFA_PURCHASER",
+    "username": "purchaser@tenant.onmicrosoft.com",
+    "password": "...",
+    "mfa_seed": "...",
     "description": "Creates purchase orders"
   },
   "approver": {
-    "username_env": "BC_USER_APPROVER",
-    "password_env": "BC_PASS_APPROVER",
+    "username": "approver@tenant.onmicrosoft.com",
+    "password": "...",
     "description": "Approves purchase orders"
   }
 }
@@ -561,7 +561,7 @@ Create `workflow.json`:
       "script": "./scripts/approve-po.yml",
       "depends_on": "create-po",
       "inject": {
-        "po_number": "{capture.create-po.po_number}"
+        "Purchase Order List.No.": "{capture.create-po.po_number}"
       }
     }
   ]
@@ -583,18 +583,24 @@ Create `workflow.json`:
 
 **Goal:** Inject captured state values into script YAML before execution.
 
+The preprocessor updates the `default:` value in BC's native `parameters:` section:
+
 ```powershell
+# BC scripts have a parameters section like:
+#   parameters:
+#     Purchase Order List.No.:
+#       type: string
+#       default: IO210018
+#
+# The preprocessor updates the default value to the captured value.
 function Invoke-YamlPreprocess {
     param(
         [string]$TemplatePath,
         [string]$OutputPath,
-        [hashtable]$Substitutions
+        [hashtable]$Substitutions   # e.g. @{ "Purchase Order List.No." = "PO-001234" }
     )
-    $content = Get-Content $TemplatePath -Raw
-    foreach ($key in $Substitutions.Keys) {
-        $content = $content -replace "\{\{$key\}\}", $Substitutions[$key]
-    }
-    Set-Content -Path $OutputPath -Value $content
+    # Updates default: values in the parameters: section
+    # Falls back to {{PLACEHOLDER}} replacement for hand-crafted templates
 }
 ```
 
@@ -705,7 +711,7 @@ PO Approval Workflow/
 
 | # | Question | Impact | How to Resolve |
 |---|----------|--------|----------------|
-| 1 | Does bc-replay support `parameters:` in YAML? | If yes, scripts become templateable without preprocessing | Test with installed bc-replay |
+| 1 | Does bc-replay support `parameters:` in YAML? | **YES** - confirmed. BC records native `parameters:` section with `default:` values. Steps use `=Parameters.'Page.Field'`. The preprocessor updates the `default:` value. | Confirmed via real BC recording |
 | 2 | Does bc-replay support `validate` steps? | Enables assertions within scripts | Test with installed bc-replay |
 | 3 | Does bc-replay support `include` for script composition? | Could simplify multi-step workflows | Test with installed bc-replay |
 | 4 | Does `-MultiFactorType TOTP` work natively in bc-replay v0.1.119? | If yes, MFA patch is no longer needed - simplifies everything | Update bc-replay to latest + test MFA flow |

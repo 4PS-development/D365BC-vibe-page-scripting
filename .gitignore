@@ -12,6 +12,7 @@ BC.code-workspace
 
 # ===== BC PAGE SCRIPTING SPECIFIC =====
 # Credentials and sensitive information
+**/users.json
 **/config.local.*
 **/secrets.*
 **/.env
@@ -36,9 +37,13 @@ bc-replay/testing/
 **/test-results/
 **/playwright-report/
 **/allure-results/
+**/workflow-state.json
 *.xml
 results.xml
 bc-replay/results.xml
+
+# Workflow run results (generated per execution)
+page-scripting/**/results/
 
 # Generated variant scripts (exclude from repo - too many files)
 **/Variants/PS Variants Scripts/*.yml

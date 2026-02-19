@@ -1,0 +1,164 @@
+name: create-po
+description: Test recording
+telemetryId: 8a973e95-ae76-438c-936a-867303c0ea60
+start:
+  profile: BUSINESS MANAGER
+steps:
+  - type: navigate
+    target:
+      - page: Purchase Order List
+    description: Navigate to Inkooporders
+  - type: page-shown
+    source:
+      page: Purchase Order List
+    modal: false
+    runtimeId: b80
+    description: Page <caption>Inkooporders</caption> was shown.
+  - type: invoke
+    target:
+      - page: Purchase Order List
+        runtimeRef: b80
+      - action: Control_New
+    invokeType: New
+    description: Invoke New on <caption>Nieuw</caption>
+  - type: page-shown
+    source:
+      page: Purchase Order
+    modal: false
+    runtimeId: bkz
+    description: Page <caption>Nieuw - Inkooporder</caption> was shown.
+  - type: focus
+    target:
+      - page: Purchase Order
+        runtimeRef: bkz
+      - field: No.
+    description: Focus <caption>Nr.</caption>
+  - type: focus
+    target:
+      - page: Purchase Order
+        runtimeRef: bkz
+      - field: Purchase Order Type
+    description: Focus <caption>Inkoopordertype</caption>
+  - type: invoke
+    target:
+      - page: Purchase Order
+        runtimeRef: bkz
+      - field: Buy-from Vendor Name
+    invokeType: Lookup
+    description: Invoke Lookup on <caption>Leverancier</caption>
+  - type: page-shown
+    source:
+      page: Vendor Lookup
+    modal: true
+    runtimeId: b1io
+    description: Page <caption>Leveranciers</caption> was shown.
+  - type: invoke
+    target:
+      - page: Vendor Lookup
+        runtimeRef: b1io
+    invokeType: LookupOk
+    description: Invoke LookupOk on <caption>Leveranciers</caption>
+  - type: page-closed
+    source:
+      page: Vendor Lookup
+    runtimeId: b1io
+    description: Page <caption>Leveranciers</caption> was closed.
+  - type: focus
+    target:
+      - page: Purchase Order
+        runtimeRef: bkz
+      - part: PurchLines
+      - page: Purchase Order Subform
+      - repeater: Control1
+      - field: Type
+    description: Focus <caption>Soort</caption>
+  - type: input
+    target:
+      - page: Purchase Order
+        runtimeRef: bkz
+      - part: PurchLines
+      - page: Purchase Order Subform
+      - repeater: Control1
+      - field: Type
+    value: 1
+    description: Input <value>1</value> into <caption>Soort</caption>
+  - type: focus
+    target:
+      - page: Purchase Order
+        runtimeRef: bkz
+      - part: PurchLines
+      - page: Purchase Order Subform
+      - repeater: Control1
+      - field: Type
+    description: Focus <caption>Soort</caption>
+  - type: invoke
+    target:
+      - page: Purchase Order
+        runtimeRef: bkz
+      - part: PurchLines
+      - page: Purchase Order Subform
+      - repeater: Control1
+      - field: No.
+    invokeType: Lookup
+    description: Invoke Lookup on <caption>Nr.</caption>
+  - type: page-shown
+    source:
+      page: G/L Account List
+    modal: true
+    runtimeId: b1o0
+    description: Page <caption>Grootboekrekeningoverzicht</caption> was shown.
+  - type: set-current-row
+    target:
+      - page: G/L Account List
+        runtimeRef: b1o0
+      - repeater: Control1
+    targetRecord:
+      relative: 19
+    description: Set current row in <caption>Control1</caption>
+  - type: invoke
+    target:
+      - page: G/L Account List
+        runtimeRef: b1o0
+    invokeType: LookupOk
+    description: Invoke LookupOk on <caption>Grootboekrekeningoverzicht</caption>
+  - type: page-closed
+    source:
+      page: G/L Account List
+    runtimeId: b1o0
+    description: Page <caption>Grootboekrekeningoverzicht</caption> was closed.
+  - type: input
+    target:
+      - page: Purchase Order
+        runtimeRef: bkz
+      - part: PurchLines
+      - page: Purchase Order Subform
+      - repeater: Control1
+      - field: Quantity
+    value: "1"
+    description: Input <value>1</value> into <caption>Aantal</caption>
+  - type: input
+    target:
+      - page: Purchase Order
+        runtimeRef: bkz
+      - part: PurchLines
+      - page: Purchase Order Subform
+      - repeater: Control1
+      - field: Direct Unit Cost
+    value: "100"
+    description: Input <value>100</value> into <caption>Directe kostprijs Excl.
+      btw</caption>
+  - type: invoke
+    target:
+      - page: Purchase Order
+        runtimeRef: bkz
+      - action: Release
+    parameters: {}
+    description: Invoke <caption>Vrijgeven</caption>
+  - type: copy-value
+    source:
+      - page: Purchase Order
+        runtimeRef: bkz
+      - field: No.
+    name: Purchase Order - No.
+    valueType: string
+    description: Copy value from <caption>Nr.</caption>

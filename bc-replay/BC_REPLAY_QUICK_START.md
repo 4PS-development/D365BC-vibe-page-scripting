@@ -145,7 +145,10 @@ npx replay
   [-Authentication Windows|AAD|UserPassword]
   [-UserNameKey <String>]
   [-PasswordKey <String>]
+  [-MultiFactorType None|TOTP|Certificate]
+  [-MultiFactorSecretKey <String>]
   [-Headed]
+  [-UseServerReplay]
   [-ResultDir <String>]
 ```
 
@@ -155,10 +158,13 @@ npx replay
 |-----------|----------|-------------|---------|
 | `-Tests` | Yes | File glob pattern to select recordings | `.\recordings\*.yml` |
 | `-StartAddress` | Yes | BC web client URL | `https://businesscentral.dynamics.com/...` |
-| `-Authentication` | No | Auth method: `Windows`, `AAD`, `UserPassword` | `-Authentication UserPassword` |
+| `-Authentication` | No | Auth method: `Windows`, `AAD`, `UserPassword` | `-Authentication AAD` |
 | `-UserNameKey` | Conditional* | Environment variable name for username | `-UserNameKey BC_USERNAME` |
 | `-PasswordKey` | Conditional* | Environment variable name for password | `-PasswordKey BC_PASSWORD` |
+| `-MultiFactorType` | No | MFA method: `None`, `TOTP`, `Certificate` | `-MultiFactorType TOTP` |
+| `-MultiFactorSecretKey` | No | Env var name containing TOTP seed | `-MultiFactorSecretKey BC_MFA_SEED` |
 | `-Headed` | No | Show browser during test execution | `-Headed` |
+| `-UseServerReplay` | No | Use server-side replay mode | `-UseServerReplay` |
 | `-ResultDir` | No | Folder for test results and reports | `-ResultDir c:\bc-replay\results` |
 
 *Required when `-Authentication` is `AAD` or `UserPassword`
@@ -275,6 +281,42 @@ This repository provides **script generation** in `page-scripting/` folder and *
 Record BASE script → Generate variants → Execute with bc-replay → Review reports
 ```
 
+## Multi-User Workflow Orchestration
+
+For business processes that span multiple users (e.g., create PO → approve PO → receive goods), use the workflow orchestrator instead of running individual scripts.
+
+### How It Works
+
+1. Define a `workflow.json` with steps, user roles, scripts, and capture/inject rules
+2. Define a `users.json` with credentials for each user role
+3. The orchestrator runs each step sequentially with the correct user's credentials
+4. Captured values (e.g., PO number) are injected into subsequent steps via BC's native `parameters:` section
+
+### Running a Workflow
+
+```powershell
+# Credentials are stored in users.json per role
+# Execute the workflow
+.\Run-BCWorkflow.ps1 -WorkflowPath "..\page-scripting\PO Approval Workflow"
+
+# Options
+.\Run-BCWorkflow.ps1 -WorkflowPath "..." -Headed          # Watch execution
+.\Run-BCWorkflow.ps1 -WorkflowPath "..." -DryRun           # Preview without running
+.\Run-BCWorkflow.ps1 -WorkflowPath "..." -StopOnFailure:$false  # Continue on errors
+```
+
+### Results
+
+```
+results/
+  workflow-summary.html    # Overall workflow report (open in browser)
+  workflow-summary.json    # Machine-readable results
+  step-create-po/          # Per-step Playwright report
+  step-approve-po/         # Per-step Playwright report
+```
+
+See [PO Approval Workflow](../page-scripting/PO%20Approval%20Workflow/) for a complete example and [MULTI-USER-WORKFLOW-PLAN.md](../docs/MULTI-USER-WORKFLOW-PLAN.md) for architecture details.
+
 ## Best Practices
 
 ✅ **DO:**
@@ -296,8 +338,9 @@ Record BASE script → Generate variants → Execute with bc-replay → Review r
 
 1. **Record your first script** - See `../page-scripting/PAGE_SCRIPTING_QUICK_START.md`
 2. **Generate variants** - Use PowerShell scripts in `../page-scripting/`
-3. **Set up CI/CD** - Integrate bc-replay into your build pipeline
-4. **Monitor results** - Review Playwright reports after each run
+3. **Multi-user workflows** - See `Run-BCWorkflow.ps1` and the [PO Approval Workflow](../page-scripting/PO%20Approval%20Workflow/) example
+4. **Set up CI/CD** - Integrate bc-replay into your build pipeline
+5. **Monitor results** - Review Playwright reports after each run
 
 ## Resources
 

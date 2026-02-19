@@ -208,6 +208,54 @@ steps:
 - Included scripts must be accessible from host script location
 - Parameters must be defined in both host and included scripts if passing values
 
+## Multi-User Workflows and Native BC Parameters
+
+BC page scripting has a built-in parameter mechanism. When recording scripts, BC generates a `parameters:` section at the end of the YAML with typed parameters and default values. Steps reference parameters using the `=Parameters.'Page.Field'` syntax.
+
+### Native Parameter Syntax
+
+BC recordings that use parameters look like this:
+
+```yaml
+steps:
+  - type: input
+    target:
+      - page: Purchase Order List
+        runtimeRef: b7yw
+      - scope: filter
+        field: No.
+    value: =Parameters.'Purchase Order List.No.'
+    description: Input <value>Parameters.'Purchase Order List.No.'</value> into <caption>No.</caption>
+
+# At the end of the file:
+parameters:
+  Purchase Order List.No.:
+    type: string
+    default: IO210018
+```
+
+The workflow orchestrator (`Run-BCWorkflow.ps1`) updates the `default:` value with values captured from a previous step before running the script.
+
+### When to Use Parameters
+
+- A field value depends on what was created in a previous step (e.g., document numbers)
+- Different users act on the same document in sequence
+- You want the same recording to work across different test runs
+
+### Workflow Project Structure
+
+```
+PO Approval Workflow/
+  workflow.json                  # Step definitions, capture/inject rules
+  users.json                     # User roles with credentials
+  scripts/
+    create-po.yml                # Step 1: Record in BC (captures PO number)
+    Check PO with approver.yml   # Step 2: Uses Parameters.'Purchase Order List.No.'
+  Process.md                     # Business process documentation
+```
+
+See [PO Approval Workflow](PO%20Approval%20Workflow/) for a complete example and [MULTI-USER-WORKFLOW-PLAN.md](../docs/MULTI-USER-WORKFLOW-PLAN.md) for architecture details.
+
 ## Resources
 
 **Official Documentation:**
@@ -219,6 +267,7 @@ steps:
 - `../README.md` - Complete project documentation
 - `../GETTING_STARTED.md` - Repository quick start
 - `../bc-replay/BC_REPLAY_QUICK_START.md` - Pipeline execution guide
+- `../docs/MULTI-USER-WORKFLOW-PLAN.md` - Multi-user workflow architecture
 - `../.github/copilot-instructions.md` - YAML patterns and conventions
 
 ---
@@ -228,3 +277,4 @@ steps:
 2. Test replay immediately
 3. Save and share with team
 4. Build variant suite using project automation scripts
+5. Try multi-user workflows with `Run-BCWorkflow.ps1`

@@ -1,0 +1,14 @@
+{
+  "purchaser": {
+    "username": "purchaser@yourtenant.onmicrosoft.com",
+    "password": "your-password-here",
+    "description": "Creates purchase orders",
+    "mfa_seed": "your-totp-seed-here"
+  },
+  "approver": {
+    "username": "approver@yourtenant.onmicrosoft.com",
+    "password": "your-password-here",
+    "description": "Approves purchase orders",
+    "mfa_seed": "your-totp-seed-here"
+  }
+}
