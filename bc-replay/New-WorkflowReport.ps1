@@ -84,35 +84,37 @@ function New-WorkflowReport {
 
     # ── Build HTML summary ──────────────────────────────────────────────────
     $overallColor = if ($summary.overall -eq "PASSED") { "#22c55e" } else { "#ef4444" }
+    $overallBg    = if ($summary.overall -eq "PASSED") { "#22c55e" } else { "#D0021B" }
 
     $stepsHtml = ""
     foreach ($r in $StepResults) {
         $badgeColor = switch ($r.status) {
             "passed"  { "#22c55e" }
-            "failed"  { "#ef4444" }
+            "failed"  { "#D0021B" }
             "skipped" { "#eab308" }
             "dry-run" { "#6b7280" }
             default   { "#6b7280" }
         }
 
         $reportLink = ""
-        if ($r.report_dir -and (Test-Path (Join-Path $r.report_dir "index.html") -ErrorAction SilentlyContinue)) {
-            $relPath = "step-$($r.id)/index.html"
-            $reportLink = "<a href=`"$relPath`" style=`"color:#3b82f6`">View Report</a>"
+        # Playwright writes reports to playwright-report/ subdirectory inside the step folder
+        if ($r.report_dir -and (Test-Path (Join-Path $r.report_dir "playwright-report/index.html") -ErrorAction SilentlyContinue)) {
+            $relPath = "step-$($r.id)/playwright-report/index.html"
+            $reportLink = "<a href=`"$relPath`" style=`"color:#D0021B;font-weight:600`">View Report</a>"
         } else {
-            $reportLink = "<span style=`"color:#9ca3af`">No report</span>"
+            $reportLink = "<span style=`"color:#999`">No report</span>"
         }
 
         $stepsHtml += @"
         <tr>
-            <td style="padding:8px 12px">$($r.id)</td>
-            <td style="padding:8px 12px"><strong>$($r.name)</strong></td>
-            <td style="padding:8px 12px">$($r.user)</td>
-            <td style="padding:8px 12px">
-                <span style="background:$badgeColor;color:#fff;padding:2px 8px;border-radius:4px;font-size:0.85em">$($r.status.ToUpper())</span>
+            <td>$($r.id)</td>
+            <td><strong>$($r.name)</strong></td>
+            <td>$($r.user)</td>
+            <td>
+                <span class="badge" style="background:$badgeColor">$($r.status.ToUpper())</span>
             </td>
-            <td style="padding:8px 12px">$($r.duration_s)s</td>
-            <td style="padding:8px 12px">$reportLink</td>
+            <td>$($r.duration_s)s</td>
+            <td>$reportLink</td>
         </tr>
 "@
     }
@@ -124,32 +126,74 @@ function New-WorkflowReport {
     <meta charset="UTF-8">
     <title>Workflow Report - $([System.Web.HttpUtility]::HtmlEncode($WorkflowName))</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 24px; background: #f9fafb; color: #1f2937; }
-        .container { max-width: 900px; margin: 0 auto; }
-        h1 { margin: 0 0 4px 0; font-size: 1.5em; }
-        .subtitle { color: #6b7280; margin-bottom: 20px; }
-        .summary-bar { display: flex; gap: 16px; margin-bottom: 24px; }
-        .summary-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 20px; flex: 1; text-align: center; }
-        .summary-card .label { font-size: 0.85em; color: #6b7280; }
-        .summary-card .value { font-size: 1.4em; font-weight: 700; }
-        table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
-        th { background: #f3f4f6; text-align: left; padding: 10px 12px; font-size: 0.85em; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
-        tr:not(:last-child) td { border-bottom: 1px solid #f3f4f6; }
-        .footer { margin-top: 20px; font-size: 0.8em; color: #9ca3af; }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            margin: 0; padding: 0;
+            background: #F5F5F5; color: #444444;
+        }
+        .header-bar {
+            background: #1A1A1A;
+            padding: 16px 32px;
+            display: flex; align-items: center; gap: 16px;
+        }
+        .header-bar img { height: 40px; }
+        .header-bar .header-title {
+            color: #fff; font-size: 1.1em; font-weight: 600; letter-spacing: 0.02em;
+        }
+        .container { max-width: 960px; margin: 0 auto; padding: 28px 24px; }
+        h1 { margin: 0 0 4px 0; font-size: 1.5em; color: #1A1A1A; }
+        .subtitle { color: #666; margin-bottom: 24px; font-size: 0.95em; }
+        .summary-bar { display: flex; gap: 16px; margin-bottom: 28px; }
+        .summary-card {
+            background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+            padding: 14px 20px; flex: 1; text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .summary-card .label { font-size: 0.8em; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+        .summary-card .value { font-size: 1.5em; font-weight: 700; color: #333; }
+        table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        th {
+            background: #333333; color: #fff;
+            text-align: left; padding: 11px 14px;
+            font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
+        }
+        td { padding: 10px 14px; font-size: 0.92em; }
+        tr:not(:last-child) td { border-bottom: 1px solid #f0f0f0; }
+        tbody tr:hover { background: #fafafa; }
+        .badge {
+            color: #fff; padding: 3px 10px; border-radius: 4px;
+            font-size: 0.82em; font-weight: 600; display: inline-block;
+        }
+        .overall-badge {
+            color: #fff; padding: 3px 12px; border-radius: 4px;
+            font-weight: 700; font-size: 0.9em; display: inline-block;
+        }
+        .red-accent { border-left: 4px solid #D0021B; }
+        .footer {
+            margin-top: 28px; padding-top: 16px; border-top: 1px solid #e0e0e0;
+            font-size: 0.78em; color: #999; display: flex; justify-content: space-between; align-items: center;
+        }
+        a { text-decoration: none; }
+        a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
+<div class="header-bar">
+    <img src="https://www.4ps.nl/wp-content/uploads/sites/2/4PS_Endorsement-2024_RGB_stacked.png" alt="4PS" />
+    <span class="header-title">BC Workflow Report</span>
+</div>
 <div class="container">
     <h1>$([System.Web.HttpUtility]::HtmlEncode($WorkflowName))</h1>
     <p class="subtitle">
-        <span style="background:$overallColor;color:#fff;padding:2px 10px;border-radius:4px;font-weight:600">$($summary.overall)</span>
+        <span class="overall-badge" style="background:$overallBg">$($summary.overall)</span>
         &nbsp; $($WorkflowStart.ToString("yyyy-MM-dd HH:mm:ss")) &mdash; $([math]::Round(($WorkflowEnd - $WorkflowStart).TotalSeconds, 1))s total
     </p>
 
     <div class="summary-bar">
         <div class="summary-card"><div class="label">Steps</div><div class="value">$($StepResults.Count)</div></div>
         <div class="summary-card"><div class="label">Passed</div><div class="value" style="color:#22c55e">$($summary.passed)</div></div>
-        <div class="summary-card"><div class="label">Failed</div><div class="value" style="color:#ef4444">$($summary.failed)</div></div>
+        <div class="summary-card"><div class="label">Failed</div><div class="value" style="color:#D0021B">$($summary.failed)</div></div>
         <div class="summary-card"><div class="label">Skipped</div><div class="value" style="color:#eab308">$($summary.skipped)</div></div>
     </div>
 
@@ -169,7 +213,10 @@ $stepsHtml
         </tbody>
     </table>
 
-    <p class="footer">Generated by BC Multi-User Workflow Orchestrator</p>
+    <div class="footer">
+        <span>Generated by BC Multi-User Workflow Orchestrator</span>
+        <span style="color:#D0021B; font-weight:600">4PS</span>
+    </div>
 </div>
 </body>
 </html>

@@ -395,8 +395,14 @@ Write-Host "  Failed : $failed" -ForegroundColor $(if ($failed -gt 0) { "Red" } 
 Write-Host "  Skipped: $skipped" -ForegroundColor $(if ($skipped -gt 0) { "Yellow" } else { "Gray" })
 Write-Host "  Total  : $($workflow.steps.Count) steps, $([math]::Round(($workflowEnd - $workflowStart).TotalSeconds, 1))s" -ForegroundColor White
 Write-Host ""
-Write-Host "  Report : $(Join-Path $ResultDir 'workflow-summary.html')" -ForegroundColor Cyan
+$reportPath = Join-Path $ResultDir 'workflow-summary.html'
+Write-Host "  Report : $reportPath" -ForegroundColor Cyan
 Write-Host ""
+
+# Open the HTML report in the default browser
+if (Test-Path $reportPath) {
+    Start-Process $reportPath
+}
 
 # Exit with failure code if any step failed
 if ($failed -gt 0) { exit 1 }
