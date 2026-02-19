@@ -65,7 +65,7 @@ function New-WorkflowReport {
     }
 
     foreach ($r in $StepResults) {
-        $summary.steps += [ordered]@{
+        $stepData = [ordered]@{
             id         = $r.id
             name       = $r.name
             user       = $r.user
@@ -76,6 +76,22 @@ function New-WorkflowReport {
             duration_s = $r.duration_s
             report_dir = if ($r.report_dir) { (Resolve-Path $r.report_dir -ErrorAction SilentlyContinue)?.Path ?? $r.report_dir } else { $null }
         }
+        if ($r.sub_results) {
+            $stepData.sub_results = @()
+            foreach ($sub in $r.sub_results) {
+                $stepData.sub_results += [ordered]@{
+                    script     = $sub.script
+                    label      = $sub.label
+                    status     = $sub.status
+                    exit_code  = $sub.exit_code
+                    start_time = $sub.start_time.ToString("o")
+                    end_time   = $sub.end_time.ToString("o")
+                    duration_s = $sub.duration_s
+                    report_dir = if ($sub.report_dir) { (Resolve-Path $sub.report_dir -ErrorAction SilentlyContinue)?.Path ?? $sub.report_dir } else { $null }
+                }
+            }
+        }
+        $summary.steps += $stepData
     }
 
     $jsonPath = Join-Path $OutputDir "workflow-summary.json"
@@ -96,9 +112,14 @@ function New-WorkflowReport {
             default   { "#6b7280" }
         }
 
+        $hasSubResults = $r.sub_results -and $r.sub_results.Count -gt 0
+
+        # For single-script steps, link directly to the report
+        # For multi-script steps, the parent row shows script count (individual links on sub-rows)
         $reportLink = ""
-        # Playwright writes reports to playwright-report/ subdirectory inside the step folder
-        if ($r.report_dir -and (Test-Path (Join-Path $r.report_dir "playwright-report/index.html") -ErrorAction SilentlyContinue)) {
+        if ($hasSubResults) {
+            $reportLink = "<span style=`"color:#888;font-size:0.85em`">$($r.sub_results.Count) scripts</span>"
+        } elseif ($r.report_dir -and (Test-Path (Join-Path $r.report_dir "playwright-report/index.html") -ErrorAction SilentlyContinue)) {
             $relPath = "step-$($r.id)/playwright-report/index.html"
             $reportLink = "<a href=`"$relPath`" style=`"color:#D0021B;font-weight:600`">View Report</a>"
         } else {
@@ -117,6 +138,42 @@ function New-WorkflowReport {
             <td>$reportLink</td>
         </tr>
 "@
+
+        # Render sub-rows for multi-script steps
+        if ($hasSubResults) {
+            $subIndex = 0
+            foreach ($sub in $r.sub_results) {
+                $subIndex++
+                $subBadgeColor = switch ($sub.status) {
+                    "passed"  { "#22c55e" }
+                    "failed"  { "#D0021B" }
+                    "skipped" { "#eab308" }
+                    "dry-run" { "#6b7280" }
+                    default   { "#6b7280" }
+                }
+
+                $subReportLink = ""
+                if ($sub.report_dir -and (Test-Path (Join-Path $sub.report_dir "playwright-report/index.html") -ErrorAction SilentlyContinue)) {
+                    $subRelPath = "step-$($r.id)/script-$subIndex/playwright-report/index.html"
+                    $subReportLink = "<a href=`"$subRelPath`" style=`"color:#D0021B;font-weight:600`">View Report</a>"
+                } else {
+                    $subReportLink = "<span style=`"color:#999`">No report</span>"
+                }
+
+                $stepsHtml += @"
+        <tr style="background:#fafafa">
+            <td></td>
+            <td style="padding-left:28px;font-size:0.88em;color:#666">$($sub.label)</td>
+            <td></td>
+            <td>
+                <span class="badge" style="background:$subBadgeColor;font-size:0.75em;padding:2px 7px">$($sub.status.ToUpper())</span>
+            </td>
+            <td style="font-size:0.88em">$($sub.duration_s)s</td>
+            <td>$subReportLink</td>
+        </tr>
+"@
+            }
+        }
     }
 
     $html = @"

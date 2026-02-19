@@ -144,9 +144,25 @@ foreach ($step in $workflow.steps) {
     $stepResultDir = Join-Path $ResultDir "step-$($step.id)"
     New-Item -ItemType Directory -Path $stepResultDir -Force | Out-Null
 
+    # Resolve scripts list: support both "script" (string) and "scripts" (array)
+    $scriptsList = @()
+    if ($step.scripts -and $step.scripts.Count -gt 0) {
+        $scriptsList = @($step.scripts)
+    } elseif ($step.script) {
+        $scriptsList = @($step.script)
+    } else {
+        Write-Error "Step '$($step.id)' has no 'script' or 'scripts' defined"
+        exit 1
+    }
+    $isMultiScript = $scriptsList.Count -gt 1
+
     Write-Host "──────────────────────────────────────────────────────" -ForegroundColor DarkGray
     Write-Host "  Step $stepIndex/$($workflow.steps.Count): $($step.name)" -ForegroundColor Cyan
-    Write-Host "  User: $($step.user)  |  Script: $($step.script)" -ForegroundColor Gray
+    if ($isMultiScript) {
+        Write-Host "  User: $($step.user)  |  Scripts: $($scriptsList.Count)" -ForegroundColor Gray
+    } else {
+        Write-Host "  User: $($step.user)  |  Script: $($scriptsList[0])" -ForegroundColor Gray
+    }
     Write-Host ""
 
     # 1. Check dependency
@@ -171,186 +187,235 @@ foreach ($step in $workflow.steps) {
         }
     }
 
-    # 2. Resolve script path (relative to workflow folder)
-    $scriptPath = Join-Path $workflowFolder $step.script
-    if (-not (Test-Path $scriptPath)) {
-        Write-Error "Script not found: $scriptPath"
-        exit 1
-    }
-
-    # 3. YAML preprocessing - inject captured values from previous steps
-    $processedScript = $scriptPath
-    if ($step.inject) {
-        $substitutions = @{}
-        foreach ($prop in $step.inject.PSObject.Properties) {
-            $key   = $prop.Name
-            $value = $prop.Value
-
-            # Resolve {capture.<step-id>.<field>} references
-            if ($value -match '^\{capture\.([^.]+)\.([^}]+)\}$') {
-                $sourceStep  = $Matches[1]
-                $sourceField = $Matches[2]
-                if ($workflowState.ContainsKey($sourceStep) -and $workflowState[$sourceStep].ContainsKey($sourceField)) {
-                    $substitutions[$key] = $workflowState[$sourceStep][$sourceField]
-                } else {
-                    Write-Warning "  Capture reference not found: capture.$sourceStep.$sourceField"
-                    $substitutions[$key] = ""
-                }
-            } else {
-                # Literal value
-                $substitutions[$key] = $value
-            }
-        }
-
-        if ($substitutions.Count -gt 0) {
-            $processedDir = Join-Path $stepResultDir "processed"
-            if (-not (Test-Path $processedDir)) {
-                New-Item -Path $processedDir -ItemType Directory -Force | Out-Null
-            }
-            $processedScript = Join-Path $processedDir (Split-Path $scriptPath -Leaf)
-
-            Write-Host "  Injecting parameter values:" -ForegroundColor DarkYellow
-            foreach ($k in $substitutions.Keys) {
-                Write-Host "    $k = $($substitutions[$k])" -ForegroundColor DarkYellow
-            }
-
-            Invoke-YamlPreprocess `
-                -TemplatePath $scriptPath `
-                -OutputPath $processedScript `
-                -Substitutions $substitutions
-        }
-    }
-
-    # 4. Set credentials as temporary env vars for bc-replay
-    #    bc-replay reads credentials from env vars via -UserNameKey/-PasswordKey
+    # 2. Set credentials as temporary env vars for bc-replay
     $userConfig = $users.PSObject.Properties[$step.user].Value
     $env:BC_WF_USERNAME = $userConfig.username
     $env:BC_WF_PASSWORD = $userConfig.password
 
-    # 5. Build npx replay command
-    $replayArgs = @(
-        "replay"
-        $processedScript
-        "-StartAddress", $workflow.bc_url
-        "-Authentication", "AAD"
-        "-UserNameKey", "BC_WF_USERNAME"
-        "-PasswordKey", "BC_WF_PASSWORD"
-        "-ResultDir", $stepResultDir
-    )
-
-    # Add MFA flags if user has mfa_seed configured AND bc-replay supports it
+    # 3. Check MFA support once per step
+    $mfaArgs = @()
     if ($userConfig.mfa_seed) {
-        # Check if installed bc-replay version supports -MultiFactorType
         $replayScript = Join-Path $PSScriptRoot "node_modules\@microsoft\bc-replay\Replay.ps1"
         $supportsMFA = $false
         if (Test-Path $replayScript) {
             $supportsMFA = (Get-Content $replayScript -Raw) -match 'MultiFactorType'
         }
         if ($supportsMFA) {
-            $replayArgs += "-MultiFactorType", "TOTP"
-            $replayArgs += "-MultiFactorSecretKey", $userConfig.mfa_seed
+            $mfaArgs = @("-MultiFactorType", "TOTP", "-MultiFactorSecretKey", $userConfig.mfa_seed)
         } else {
             Write-Warning "  MFA seed configured for '$($step.user)' but bc-replay does not support -MultiFactorType. Upgrade bc-replay or use the MFA patch."
         }
     }
 
-    if ($Headed) {
-        $replayArgs += "-Headed"
-    }
+    # 4. Execute each script in the step
+    $subResults = @()
+    $stepExitCode = 0
+    $scriptIndex = 0
 
-    # 6. Execute bc-replay
-    $exitCode = 0
-    if ($DryRun) {
-        Write-Host "  [DRY RUN] npx $($replayArgs -join ' ')" -ForegroundColor Yellow
-    } else {
-        Write-Host "  Running: npx $($replayArgs -join ' ')" -ForegroundColor DarkGray
-        Write-Host ""
+    foreach ($scriptRelPath in $scriptsList) {
+        $scriptIndex++
+        $scriptStart = Get-Date
 
-        # Set PLAYWRIGHT_HTML_TITLE for labelled reports
-        $env:PLAYWRIGHT_HTML_TITLE = "Step $stepIndex - $($step.name) ($($step.user))"
-
-        # npx must run from bc-replay/ where node_modules is installed
-        $bcReplayDir = $PSScriptRoot
-        Push-Location $bcReplayDir
-        try {
-            & npx @replayArgs
-            $exitCode = $LASTEXITCODE
-        } catch {
-            Write-Warning "  bc-replay execution error: $_"
-            $exitCode = 1
-        } finally {
-            Pop-Location
-        }
-    }
-
-    # 7. Read captured state from replay log
-    #    BC's copy-value steps write copiedValue into the replay log YAML.
-    #    The replay log is in the Playwright report data directory.
-    if ($step.capture -and -not $DryRun -and $exitCode -eq 0) {
-        $capturedHash = @{}
-
-        # Find the replay log in the Playwright report data
-        $replayLogDir = Join-Path $stepResultDir "playwright-report\data"
-        $replayLogFiles = @()
-        if (Test-Path $replayLogDir) {
-            $replayLogFiles = Get-ChildItem $replayLogDir -Filter "*.yml" |
-                Where-Object { $_.Length -gt 4000 } |   # replay log is larger than the recording
-                Sort-Object Length -Descending
+        # Determine result dir: sub-folder per script if multi-script, else the step dir
+        if ($isMultiScript) {
+            $scriptResultDir = Join-Path $stepResultDir "script-$scriptIndex"
+            New-Item -ItemType Directory -Path $scriptResultDir -Force | Out-Null
+            $scriptLabel = Split-Path $scriptRelPath -Leaf
+            Write-Host "  Script $scriptIndex/$($scriptsList.Count): $scriptLabel" -ForegroundColor DarkCyan
+        } else {
+            $scriptResultDir = $stepResultDir
         }
 
-        $replayLog = $null
-        foreach ($logFile in $replayLogFiles) {
-            $content = Get-Content $logFile.FullName -Raw
-            if ($content -match "copiedValue:") {
-                $replayLog = $content
-                Write-Host "  Found replay log: $($logFile.Name)" -ForegroundColor DarkGray
-                break
-            }
+        # Resolve script path
+        $scriptPath = Join-Path $workflowFolder $scriptRelPath
+        if (-not (Test-Path $scriptPath)) {
+            Write-Error "Script not found: $scriptPath"
+            exit 1
         }
 
-        if ($replayLog) {
-            # Extract copy-value results: match "name: X" followed by "copiedValue: Y"
-            foreach ($prop in $step.capture.PSObject.Properties) {
-                $captureKey = $prop.Name          # e.g., "po_number"
-                $copyValueName = $prop.Value       # e.g., "Purchase Order - No."
-                $escapedName = [regex]::Escape($copyValueName)
+        # YAML preprocessing - inject captured values from previous steps
+        $processedScript = $scriptPath
+        if ($step.inject) {
+            $substitutions = @{}
+            foreach ($prop in $step.inject.PSObject.Properties) {
+                $key   = $prop.Name
+                $value = $prop.Value
 
-                # Pattern: name: <copyValueName> ... copiedValue: <value>
-                if ($replayLog -match "name:\s+${escapedName}[\s\S]*?copiedValue:\s+(.+)") {
-                    $capturedHash[$captureKey] = $Matches[1].Trim()
-                    Write-Host "  Captured: $captureKey = $($capturedHash[$captureKey])" -ForegroundColor Green
+                # Resolve {capture.<step-id>.<field>} references
+                if ($value -match '^\{capture\.([^.]+)\.([^}]+)\}$') {
+                    $sourceStep  = $Matches[1]
+                    $sourceField = $Matches[2]
+                    if ($workflowState.ContainsKey($sourceStep) -and $workflowState[$sourceStep].ContainsKey($sourceField)) {
+                        $substitutions[$key] = $workflowState[$sourceStep][$sourceField]
+                    } else {
+                        Write-Warning "  Capture reference not found: capture.$sourceStep.$sourceField"
+                        $substitutions[$key] = ""
+                    }
                 } else {
-                    Write-Warning "  copy-value '$copyValueName' not found in replay log"
+                    $substitutions[$key] = $value
                 }
             }
-        } else {
-            Write-Host "  No copiedValue found in replay log" -ForegroundColor Yellow
+
+            if ($substitutions.Count -gt 0) {
+                $processedDir = Join-Path $scriptResultDir "processed"
+                if (-not (Test-Path $processedDir)) {
+                    New-Item -Path $processedDir -ItemType Directory -Force | Out-Null
+                }
+                $processedScript = Join-Path $processedDir (Split-Path $scriptPath -Leaf)
+
+                Write-Host "  Injecting parameter values:" -ForegroundColor DarkYellow
+                foreach ($k in $substitutions.Keys) {
+                    Write-Host "    $k = $($substitutions[$k])" -ForegroundColor DarkYellow
+                }
+
+                Invoke-YamlPreprocess `
+                    -TemplatePath $scriptPath `
+                    -OutputPath $processedScript `
+                    -Substitutions $substitutions
+            }
         }
 
-        if ($capturedHash.Count -gt 0) {
-            $workflowState[$step.id] = $capturedHash
+        # Build npx replay command
+        $replayArgs = @(
+            "replay"
+            $processedScript
+            "-StartAddress", $workflow.bc_url
+            "-Authentication", "AAD"
+            "-UserNameKey", "BC_WF_USERNAME"
+            "-PasswordKey", "BC_WF_PASSWORD"
+            "-ResultDir", $scriptResultDir
+        )
+        $replayArgs += $mfaArgs
+        if ($Headed) { $replayArgs += "-Headed" }
+
+        # Execute bc-replay
+        $exitCode = 0
+        if ($DryRun) {
+            Write-Host "  [DRY RUN] npx $($replayArgs -join ' ')" -ForegroundColor Yellow
+        } else {
+            Write-Host "  Running: npx $($replayArgs -join ' ')" -ForegroundColor DarkGray
+            Write-Host ""
+
+            if ($isMultiScript) {
+                $env:PLAYWRIGHT_HTML_TITLE = "Step $stepIndex.$scriptIndex - $($step.name) ($($step.user))"
+            } else {
+                $env:PLAYWRIGHT_HTML_TITLE = "Step $stepIndex - $($step.name) ($($step.user))"
+            }
+
+            $bcReplayDir = $PSScriptRoot
+            Push-Location $bcReplayDir
+            try {
+                & npx @replayArgs
+                $exitCode = $LASTEXITCODE
+            } catch {
+                Write-Warning "  bc-replay execution error: $_"
+                $exitCode = 1
+            } finally {
+                Pop-Location
+            }
+        }
+
+        $scriptEnd = Get-Date
+
+        # Read captured state from replay log (scan this script's result dir)
+        if ($step.capture -and -not $DryRun -and $exitCode -eq 0) {
+            $capturedHash = @{}
+            $replayLogDir = Join-Path $scriptResultDir "playwright-report\data"
+            $replayLogFiles = @()
+            if (Test-Path $replayLogDir) {
+                $replayLogFiles = Get-ChildItem $replayLogDir -Filter "*.yml" |
+                    Where-Object { $_.Length -gt 4000 } |
+                    Sort-Object Length -Descending
+            }
+
+            $replayLog = $null
+            foreach ($logFile in $replayLogFiles) {
+                $content = Get-Content $logFile.FullName -Raw
+                if ($content -match "copiedValue:") {
+                    $replayLog = $content
+                    Write-Host "  Found replay log: $($logFile.Name)" -ForegroundColor DarkGray
+                    break
+                }
+            }
+
+            if ($replayLog) {
+                foreach ($prop in $step.capture.PSObject.Properties) {
+                    $captureKey = $prop.Name
+                    $copyValueName = $prop.Value
+                    $escapedName = [regex]::Escape($copyValueName)
+
+                    if ($replayLog -match "name:\s+${escapedName}[\s\S]*?copiedValue:\s+(.+)") {
+                        $capturedHash[$captureKey] = $Matches[1].Trim()
+                        Write-Host "  Captured: $captureKey = $($capturedHash[$captureKey])" -ForegroundColor Green
+                    } else {
+                        Write-Warning "  copy-value '$copyValueName' not found in replay log"
+                    }
+                }
+            }
+
+            # Merge captures into workflow state (last script wins for duplicates)
+            if ($capturedHash.Count -gt 0) {
+                if (-not $workflowState.ContainsKey($step.id)) {
+                    $workflowState[$step.id] = @{}
+                }
+                foreach ($k in $capturedHash.Keys) {
+                    $workflowState[$step.id][$k] = $capturedHash[$k]
+                }
+            }
+        }
+
+        # Track sub-result for multi-script steps
+        if ($isMultiScript) {
+            $scriptStatus = if ($exitCode -eq 0) { "passed" } elseif ($DryRun) { "dry-run" } else { "failed" }
+            $subResults += [PSCustomObject]@{
+                script     = $scriptRelPath
+                label      = Split-Path $scriptRelPath -Leaf
+                status     = $scriptStatus
+                exit_code  = $exitCode
+                start_time = $scriptStart
+                end_time   = $scriptEnd
+                duration_s = [math]::Round(($scriptEnd - $scriptStart).TotalSeconds, 1)
+                report_dir = $scriptResultDir
+            }
+
+            $statusColor = if ($scriptStatus -eq "passed") { "Green" } elseif ($scriptStatus -eq "dry-run") { "Yellow" } else { "Red" }
+            Write-Host "  Script $scriptIndex result: $($scriptStatus.ToUpper()) ($([math]::Round(($scriptEnd - $scriptStart).TotalSeconds, 1))s)" -ForegroundColor $statusColor
+            Write-Host ""
+        }
+
+        # Track worst exit code across scripts in this step
+        if ($exitCode -ne 0) { $stepExitCode = $exitCode }
+
+        # Stop remaining scripts in this step if one fails
+        if ($exitCode -ne 0 -and -not $DryRun) {
+            if ($isMultiScript -and $scriptIndex -lt $scriptsList.Count) {
+                Write-Host "  Remaining scripts skipped due to failure" -ForegroundColor Yellow
+            }
+            break
         }
     }
 
-    # Clean up credential env vars (don't leave them in memory)
+    # Clean up credential env vars
     Remove-Item env:BC_WF_USERNAME -ErrorAction SilentlyContinue
     Remove-Item env:BC_WF_PASSWORD -ErrorAction SilentlyContinue
 
-    # 8. Record step result
+    # 5. Record step result
     $stepEnd = Get-Date
-    $status = if ($exitCode -eq 0) { "passed" } elseif ($DryRun) { "dry-run" } else { "failed" }
+    $status = if ($stepExitCode -eq 0) { "passed" } elseif ($DryRun) { "dry-run" } else { "failed" }
 
-    $stepResults += [PSCustomObject]@{
-        id         = $step.id
-        name       = $step.name
-        user       = $step.user
-        status     = $status
-        exit_code  = $exitCode
-        start_time = $stepStart
-        end_time   = $stepEnd
-        duration_s = [math]::Round(($stepEnd - $stepStart).TotalSeconds, 1)
-        report_dir = $stepResultDir
+    $stepResult = [PSCustomObject]@{
+        id          = $step.id
+        name        = $step.name
+        user        = $step.user
+        status      = $status
+        exit_code   = $stepExitCode
+        start_time  = $stepStart
+        end_time    = $stepEnd
+        duration_s  = [math]::Round(($stepEnd - $stepStart).TotalSeconds, 1)
+        report_dir  = $stepResultDir
+        sub_results = if ($isMultiScript) { $subResults } else { $null }
     }
+    $stepResults += $stepResult
 
     # Status output
     $statusColor = if ($status -eq "passed") { "Green" } elseif ($status -eq "dry-run") { "Yellow" } else { "Red" }
