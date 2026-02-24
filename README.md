@@ -73,8 +73,7 @@ Each step runs with its own credentials. Captured values (like a PO number) are 
 ## Documentation
 
 | Guide | Purpose |
-|-------|---------|
-| **[GETTING_STARTED.md](GETTING_STARTED.md)** | Complete walkthrough and project overview |
+|-------|---------|| **[docs/OVERVIEW.md](docs/OVERVIEW.md)** | Executive summary with screenshots || **[GETTING_STARTED.md](GETTING_STARTED.md)** | Complete walkthrough and project overview |
 | **[SECURITY.md](SECURITY.md)** | Security guidelines and TOTP account setup |
 | **[page-scripting/](page-scripting/)** | Recording scripts and variant generation |
 | **[bc-replay/](bc-replay/)** | Execution, workflows, and MFA support |

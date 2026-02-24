@@ -25,6 +25,8 @@ Page scripting records your interactions with Business Central pages (opening pa
 - Select **Settings** ⚙️ > **Page Scripting**
 - Pane opens on the right side
 
+![BC Page Scripting pane open during a recording](../docs/images/01-bc-page-scripting-pane.png)
+
 ### 2. Start Recording
 - Click **Start new** or **New recording** 📹
 - Button turns red when recording

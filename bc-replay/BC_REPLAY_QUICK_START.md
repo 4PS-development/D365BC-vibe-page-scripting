@@ -2,6 +2,8 @@
 
 A practical guide to executing Business Central page scripts in automated pipelines using the bc-replay test runner.
 
+![Playwright HTML test report](../docs/images/04-playwright-report.png)
+
 ## What is BC-Replay?
 
 BC-replay is an npm package that executes Business Central page scripting YAML files outside the BC web client. It's designed for **automated testing in CI/CD pipelines**, allowing you to run recorded user acceptance tests without manual interaction.
