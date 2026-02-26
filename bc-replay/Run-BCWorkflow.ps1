@@ -66,6 +66,22 @@ $scriptRoot = $PSScriptRoot
 . (Join-Path $scriptRoot "Invoke-YamlPreprocess.ps1")
 . (Join-Path $scriptRoot "New-WorkflowReport.ps1")
 
+# ── Validate bc-replay version ───────────────────────────────────────────────
+$minBcReplayVersion = [version]"0.1.100"  # Minimum version that supports -MultiFactorType TOTP
+$bcReplayPkg = Join-Path $scriptRoot "node_modules\@microsoft\bc-replay\package.json"
+if (Test-Path $bcReplayPkg) {
+    $installedVersion = [version]((Get-Content $bcReplayPkg -Raw | ConvertFrom-Json).version)
+    if ($installedVersion -lt $minBcReplayVersion) {
+        Write-Warning "bc-replay v$installedVersion is installed, but v$minBcReplayVersion or later is required for TOTP/MFA support."
+        Write-Warning "Run: npm install @microsoft/bc-replay@latest   (in the bc-replay folder)"
+    } else {
+        Write-Host "  bc-replay : v$installedVersion" -ForegroundColor DarkGray
+    }
+} else {
+    Write-Error "bc-replay is not installed. Run: npm install   (in the bc-replay folder)"
+    exit 1
+}
+
 # ── Resolve paths ───────────────────────────────────────────────────────────
 if (Test-Path $WorkflowPath -PathType Container) {
     $workflowFolder = Resolve-Path $WorkflowPath
@@ -192,19 +208,13 @@ foreach ($step in $workflow.steps) {
     $env:BC_WF_USERNAME = $userConfig.username
     $env:BC_WF_PASSWORD = $userConfig.password
 
-    # 3. Check MFA support once per step
+    # 3. Build MFA args if seed is configured
     $mfaArgs = @()
     if ($userConfig.mfa_seed) {
-        $replayScript = Join-Path $PSScriptRoot "node_modules\@microsoft\bc-replay\Replay.ps1"
-        $supportsMFA = $false
-        if (Test-Path $replayScript) {
-            $supportsMFA = (Get-Content $replayScript -Raw) -match 'MultiFactorType'
-        }
-        if ($supportsMFA) {
-            $mfaArgs = @("-MultiFactorType", "TOTP", "-MultiFactorSecretKey", $userConfig.mfa_seed)
-        } else {
-            Write-Warning "  MFA seed configured for '$($step.user)' but bc-replay does not support -MultiFactorType. Upgrade bc-replay or use the MFA patch."
-        }
+        # -MultiFactorSecretKey expects an env var name, not the raw seed value
+        $env:BC_WF_MFA_KEY = $userConfig.mfa_seed
+        $mfaArgs = @("-MultiFactorType", "TOTP", "-MultiFactorSecretKey", "BC_WF_MFA_KEY")
+        Write-Host "  MFA      : TOTP enabled for '$($step.user)'" -ForegroundColor DarkGray
     }
 
     # 4. Execute each script in the step

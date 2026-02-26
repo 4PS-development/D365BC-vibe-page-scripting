@@ -235,7 +235,7 @@ Playwright has a rich reporting ecosystem: HTML, JSON, JUnit, blob, and fully cu
 
 **Source:** [@microsoft/bc-replay on npm](https://www.npmjs.com/package/@microsoft/bc-replay)
 
-**Version gap:** `package.json` pins `@microsoft/bc-replay@^0.1.76`, but npm shows the latest version is **0.1.119** (as of Feb 2026). Significant updates may have shipped between these versions.
+**Version:** `package.json` pins `@microsoft/bc-replay@^0.1.119` (upgraded from 0.1.76 in Feb 2026). Native TOTP/MFA support was introduced between those versions.
 
 **Full CLI syntax:**
 ```
@@ -264,13 +264,13 @@ This could **eliminate the need for the MFA `commands.js` patch entirely**. If n
 | `-Authentication Windows\|AAD\|UserPassword` | Auth method | AAD for Entra ID cloud auth |
 | `-UserNameKey <String>` | Env var name for username | Per-user credential switching |
 | `-PasswordKey <String>` | Env var name for password | Per-user credential switching |
-| `-MultiFactorType None\|TOTP\|Certificate` | MFA method | **NEW** - may replace MFA patch |
-| `-MultiFactorSecretKey <String>` | Env var name for MFA seed | **NEW** - native TOTP support |
+| `-MultiFactorType None\|TOTP\|Certificate` | MFA method | Native TOTP - replaces old patch approach |
+| `-MultiFactorSecretKey <String>` | Env var name for MFA seed | Env var name (not the raw seed value) |
 | `-Headed` | Show browser window | Debugging |
 | `-UseServerReplay` | Server-side replay mode | Unknown purpose |
 | `-ResultDir <String>` | Output directory for results | Per-step report isolation |
 
-**Open question:** Does `-MultiFactorType TOTP` actually work reliably? If yes, the project's MFA patching approach can be deprecated.
+**Confirmed (Feb 2026):** `-MultiFactorType TOTP` works. The orchestrator (`Run-BCWorkflow.ps1`) uses it natively — no `commands.js` patch required. The old patch-based MFA approach is deprecated.
 
 ### 7. Existing Codebase Patterns Inventory
 
