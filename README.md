@@ -11,12 +11,12 @@ Automate Business Central page testing using YAML-based scripts executed via Pla
 
 ## 🚀 Quick Start
 
-1. **Generation** - See [page-scripting/PAGE_SCRIPTING_QUICK_START.md](page-scripting/PAGE_SCRIPTING_QUICK_START.md) for recording scripts in BC
-2. **Execution** - See [bc-replay/BC_REPLAY_QUICK_START.md](bc-replay/BC_REPLAY_QUICK_START.md) for running scripts in pipelines
-3. **Multi-User Workflows** - See [docs/MULTI-USER-WORKFLOW-PLAN.md](docs/MULTI-USER-WORKFLOW-PLAN.md) for orchestrating across users
-4. **MFA accounts** - Use `-MultiFactorType TOTP -MultiFactorSecretKey BC_MFA_SEED` - see [bc-replay/BC_REPLAY_QUICK_START.md](bc-replay/BC_REPLAY_QUICK_START.md#-mfa-support-native-totp)
-5. **Examples** - Study `page-scripting/PO Post DirectionsEMEA/` for single-user or `page-scripting/PO Approval Workflow/` for multi-user
-6. **Full Guide** - Complete walkthrough in [GETTING_STARTED.md](GETTING_STARTED.md)
+1. **Setup** — Run `.\setup.ps1` from the repo root to check prerequisites and open the Workflow Builder
+2. **Design your workflow** — Open [tools/workflow-builder/index.html](tools/workflow-builder/index.html) in a browser: add user roles, drag in scripts, and export `workflow.json`
+3. **Record scripts** — See [page-scripting/PAGE_SCRIPTING_QUICK_START.md](page-scripting/PAGE_SCRIPTING_QUICK_START.md) for recording in BC
+4. **Run** — See [bc-replay/BC_REPLAY_QUICK_START.md](bc-replay/BC_REPLAY_QUICK_START.md) for execution options
+5. **Examples** — Study `page-scripting/PO Post DirectionsEMEA/` (single-user) or `page-scripting/PO Approval Workflow/` (multi-user)
+6. **Full Guide** — [GETTING_STARTED.md](GETTING_STARTED.md)
 
 ## Project Structure
 
@@ -33,8 +33,12 @@ Automate Business Central page testing using YAML-based scripts executed via Pla
 - 📖 [BC_REPLAY_QUICK_START.md](bc-replay/BC_REPLAY_QUICK_START.md) - Execution guide
 - 📖 [bc-replay-capture-solution/](bc-replay/bc-replay-capture-solution/) - Value capture (superseded by native `copy-value`)
 
+**`tools/`** - Visual tools
+- [workflow-builder/index.html](tools/workflow-builder/index.html) - Visual workflow designer (open in browser — no install needed)
+
 **`docs/`** - Architecture and planning
-- [MULTI-USER-WORKFLOW-PLAN.md](docs/MULTI-USER-WORKFLOW-PLAN.md) - Research, architecture, and implementation plan
+- [OVERVIEW.md](docs/OVERVIEW.md) - Visual solution overview
+- [MULTI-USER-WORKFLOW-PLAN.md](docs/MULTI-USER-WORKFLOW-PLAN.md) - Developer reference: research, architecture, implementation details
 
 ## 👥 Multi-User Workflows
 
@@ -63,11 +67,13 @@ Each step runs with its own credentials. Captured values (like a PO number) are 
 ## Documentation
 
 | Guide | Purpose |
-|-------|---------|| **[docs/OVERVIEW.md](docs/OVERVIEW.md)** | Executive summary with screenshots || **[GETTING_STARTED.md](GETTING_STARTED.md)** | Complete walkthrough and project overview |
+|-------|---------|
+| **[docs/OVERVIEW.md](docs/OVERVIEW.md)** | Visual overview — start here |
+| **[GETTING_STARTED.md](GETTING_STARTED.md)** | Step-by-step setup walkthrough |
+| **[tools/workflow-builder/index.html](tools/workflow-builder/index.html)** | Visual Workflow Builder (open in browser) |
 | **[SECURITY.md](SECURITY.md)** | Security guidelines and TOTP account setup |
 | **[page-scripting/](page-scripting/)** | Recording scripts and variant generation |
 | **[bc-replay/](bc-replay/)** | Execution and multi-user workflows |
-| **[docs/MULTI-USER-WORKFLOW-PLAN.md](docs/MULTI-USER-WORKFLOW-PLAN.md)** | Multi-user workflow architecture and plan |
 | **[.github/copilot-instructions.md](.github/copilot-instructions.md)** | AI agent instructions and YAML patterns |
 
 ## 🔗 Resources

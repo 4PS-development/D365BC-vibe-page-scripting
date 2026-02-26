@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/4PS-development/D365BC-vibe-page-scripting/workflow.schema.json",
+  "title": "BC Workflow",
+  "description": "Schema for workflow.json files used by Run-BCWorkflow.ps1 to orchestrate multi-user Business Central test sequences.",
+  "type": "object",
+  "required": ["name", "bc_url", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional: reference to this schema file for VS Code IntelliSense."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name for the workflow. Shown in report output.",
+      "examples": ["Purchase Order Approval Process"]
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional free-text description of what the workflow tests.",
+      "examples": ["Multi-user workflow: Purchaser creates PO, Approver approves it"]
+    },
+    "bc_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "The Business Central environment URL. Found in your BC browser address bar up to and including the environment name segment.",
+      "examples": [
+        "https://businesscentral.dynamics.com/00000000-0000-0000-0000-000000000000/Production"
+      ]
+    },
+    "steps": {
+      "type": "array",
+      "description": "Ordered list of workflow steps. Each step runs as a specific user and can capture values to pass to later steps.",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/step"
+      }
+    }
+  },
+  "definitions": {
+    "step": {
+      "type": "object",
+      "description": "A single workflow step — one YAML script (or a set of scripts) executed as a named user role.",
+      "required": ["id", "name", "user"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-_]+$",
+          "description": "Unique identifier for this step. Used in depends_on and capture expression references. Lowercase letters, numbers, hyphens and underscores only.",
+          "examples": ["create-po", "approve-po"]
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name for this step. Shown in the report.",
+          "examples": ["Create Purchase Order", "Check PO with approver"]
+        },
+        "user": {
+          "type": "string",
+          "description": "The role key that maps to a user entry in users.json. Must match a top-level key in users.json.",
+          "examples": ["purchaser", "approver"]
+        },
+        "script": {
+          "type": "string",
+          "description": "Relative path to a single YAML script file. Use either 'script' OR 'scripts', not both.",
+          "examples": ["./scripts/create-po.yml"]
+        },
+        "scripts": {
+          "type": "array",
+          "description": "List of YAML script files to run in sequence for this step. Use either 'script' OR 'scripts', not both.",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "description": "Relative path to a YAML script file."
+          },
+          "examples": [["./scripts/step1.yml", "./scripts/step2.yml"]]
+        },
+        "depends_on": {
+          "type": "string",
+          "description": "Step 'id' that must complete successfully before this step runs. Use when inject references a capture from another step.",
+          "examples": ["create-po"]
+        },
+        "capture": {
+          "type": "object",
+          "description": "Values to capture from the BC page after this step runs. The key is a variable name you choose; the value is 'Page Title - Field Caption' as it appears in BC. Captured values are available to later steps via {capture.stepId.varName}.",
+          "additionalProperties": {
+            "type": "string",
+            "description": "The BC field identifier in the format 'Page Title - Field Caption'.",
+            "examples": ["Purchase Order - No."]
+          },
+          "examples": [{ "po_number": "Purchase Order - No." }]
+        },
+        "inject": {
+          "type": "object",
+          "description": "Field values to inject into this step's YAML script before running. The key is 'PageTitle.FieldCaption' (dot-separated, matching the YAML field target); the value is a capture expression using the syntax {capture.stepId.varName}.",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^\\{capture\\.[a-z0-9-_]+\\.[a-z0-9_]+\\}$",
+            "description": "Capture expression: {capture.<stepId>.<variableName>}",
+            "examples": ["{capture.create-po.po_number}"]
+          },
+          "examples": [{ "Purchase Order List.No.": "{capture.create-po.po_number}" }]
+        }
+      },
+      "oneOf": [
+        { "required": ["script"], "not": { "required": ["scripts"] } },
+        { "required": ["scripts"], "not": { "required": ["script"] } }
+      ]
+    }
+  }
+}

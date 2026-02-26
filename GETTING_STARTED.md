@@ -1,123 +1,105 @@
-# Getting Started with BC Page Script Variants
+# Getting Started with BC Page Scripting
 
-Get up and running with BC page automation in 15 minutes.
+Automate Business Central testing in four steps.
 
-## 📋 What You Need
+## What You Need
 
-- Business Central test environment (Sandbox)
-- Test account with permissions (MFA disabled **OR** TOTP-based MFA - see [MFA support](bc-replay/bc-replay-mfa-solution/))
-- PowerShell, Git, and BC Page Scripting tool (Playwright-based bc-replay)
+- A Business Central Sandbox environment
+- A BC test account with page scripting permissions
+- PowerShell 7+, Git, Node.js 16.14+ (checked automatically by `setup.ps1` below)
 
-⚠️ **Important:** Configure credentials first - see [SECURITY.md](SECURITY.md)
+## Step 1 — Run Setup
 
-💡 **Note:** This project supports both standard authentication and MFA accounts using TOTP (Authenticator app). For TOTP setup instructions, see [README.md - TOTP Account Setup](README.md#-setting-up-totp-for-test-accounts).
+From the repo root, run:
 
-⚠️ **TOTP Critical Warning:** If setting up TOTP, you **MUST** capture the seed during initial setup - it's **ONLY shown ONCE** and can never be retrieved later!
-
-## 🚀 Setup (5 Minutes)
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/andywingate/D365BC-vibe-page-scripting.git
-   cd D365BC-vibe-page-scripting
-   ```
-
-2. **Configure environment**  
-   Edit `bc-replay/npx-run.ps1` with your BC tenant, environment, and test account details
-
-3. **Verify test data**  
-   Ensure test vendors, items, and locations exist in your BC test company
-
-## 📂 Repository Structure
-
-- **`page-scripting/`** - Scripts and automation
-  - PowerShell generators
-  - Project folders with BASE recordings and data files
-  - Workflow projects (e.g., `PO Approval Workflow/`) with multi-user step definitions
-  
-- **`bc-replay/`** - Test execution
-  - Test runner and Playwright environment
-  - Workflow orchestrator (`Run-BCWorkflow.ps1`)
-  - YAML preprocessor and report generator
-
-- **`docs/`** - Architecture and planning
-  - Multi-user workflow plan and research
-
-## 🎯 Create Your First Variants (10 Minutes)
-
-### 1. Study an Example
-Look at `page-scripting/PO Post DirectionsEMEA/` to see:
-- A BASE recording
-- Data files (Items, Locations)
-- Generated variants
-
-**Concept:** 1 BASE recording + data files = multiple test variants
-
-### 2. Create Your Project
 ```powershell
-cd page-scripting
-mkdir "MyProject"
+.\setup.ps1
 ```
 
-### 3. Add Your Files
-- Record a BASE script using BC's recorder → save as `BASE Recording.yml`
-- Create data files: `Items` and `Locations` (plain text, one value per line)
+This checks your environment, installs dependencies, and opens the **Workflow Builder** in your browser.
 
-### 4. Generate Variants
+> If you prefer to check requirements manually, see [bc-replay/BC_REPLAY_QUICK_START.md](bc-replay/BC_REPLAY_QUICK_START.md).
+
+## Step 2 — Design Your Workflow (Workflow Builder)
+
+Open [tools/workflow-builder/index.html](tools/workflow-builder/index.html) in any browser (no server needed).
+
+1. Enter a **Workflow Name** and your **BC Environment URL**
+2. Add **User Roles** (e.g. `purchaser`, `approver`)
+3. Drop your recorded `.yml` scripts into the Script Library
+4. Add steps, assign roles, and wire captures/injects
+5. Click **Export** — follow the post-export instructions in the popup
+
+> For single-user variant batch testing (no workflow needed), skip to Step 4.
+
+## Step 3 — Configure Credentials
+
+After exporting from the Workflow Builder:
+
+1. Copy `users.sample.json` to `users.json` in your workflow folder
+2. Fill in real values for each role:
+   - `username` — BC account email
+   - `password` — BC account password
+   - `mfa_seed` — TOTP seed (only if MFA is enabled; remove otherwise)
+
+> `users.json` is gitignored — never commit it.
+
+## Step 4 — Record Scripts in BC
+
+Open any BC page → **Settings ⚙️ → Page Scripting** → Record your process → Save as `.yml`.
+
+For workflows that capture values (e.g. PO number), add a `copy-value` step at the end of the recording.
+
+See [page-scripting/PAGE_SCRIPTING_QUICK_START.md](page-scripting/PAGE_SCRIPTING_QUICK_START.md) for full recording instructions.
+
+## Step 5 — Run
+
+**Multi-user workflow:**
 ```powershell
+cd bc-replay
+.\Run-BCWorkflow.ps1 -WorkflowPath "..\page-scripting\PO Approval Workflow"
+```
+
+**Single-user variant batch test:**
+```powershell
+cd page-scripting
 .\Generate-BC-Script-Variants.ps1 `
     -BaseScriptPath ".\MyProject\BASE Recording.yml" `
     -ProjectFolder ".\MyProject" `
     -OutputFolder ".\MyProject\Variants"
-```
 
-### 5. Run Tests
-```powershell
 cd ..\bc-replay
-.\npx-run.ps1
+.\npx-run.ps1 -ScriptPath "..\page-scripting\MyProject\Variants\*.yml" `
+    -BcUrl "https://businesscentral.dynamics.com/tenant/Sandbox"
 ```
 
-## 📚 Next Steps
+## Repository Structure
 
-- **[README.md](README.md)** - Detailed patterns, methodology, and best practices
+- **`page-scripting/`** - Script generation and variant automation
+  - PowerShell generators and project folders
+  - Workflow projects with multi-user step definitions
+
+- **`bc-replay/`** - Test execution
+  - `Run-BCWorkflow.ps1` — multi-user workflow orchestrator
+  - `npx-run.ps1` — single-user variant batch runner
+
+- **`tools/workflow-builder/`** - Visual Workflow Builder (open `index.html` in browser)
+
+- **`docs/`** - Visual overview and architecture
+
+## Next Steps
+
+- **[docs/OVERVIEW.md](docs/OVERVIEW.md)** - Visual walkthrough with screenshots
 - **[page-scripting/PAGE_SCRIPTING_QUICK_START.md](page-scripting/PAGE_SCRIPTING_QUICK_START.md)** - BC recording guide
-- **[bc-replay/BC_REPLAY_QUICK_START.md](bc-replay/BC_REPLAY_QUICK_START.md)** - Test execution guide
-- **[SECURITY.md](SECURITY.md)** - Security configuration
-- **`.github/copilot-instructions.md`** - YAML patterns and examples
-- **Multi-user workflows** - See below
-- **Example projects** - Study the working examples in `page-scripting/`
-
-## 👥 Multi-User Workflows
-
-Once you're comfortable with single-user variant generation, you can orchestrate multi-user workflows where different BC users act in sequence.
-
-### Concept
-
-```
-Purchaser creates PO  →  Approver approves PO  →  Warehouse receives goods
-   (User A)                   (User B)                  (User C)
-```
-
-Each step runs as a separate bc-replay invocation with its own credentials. Captured values (like a PO number) are injected into the next step's BC native `parameters:` section.
-
-### Quick Start
-
-1. **Study the example** - See `page-scripting/PO Approval Workflow/` for the structure
-2. **Define users** - Create `users.json` with credentials for each role
-3. **Define workflow** - Create `workflow.json` with steps, scripts, and capture/inject rules
-4. **Record scripts** - Record scripts with BC's native parameter support (`Parameters.'Page.Field'`)
-5. **Run** -
-   ```powershell
-   cd bc-replay
-   .\Run-BCWorkflow.ps1 -WorkflowPath "..\page-scripting\PO Approval Workflow"
-   ```
-
-See [docs/MULTI-USER-WORKFLOW-PLAN.md](docs/MULTI-USER-WORKFLOW-PLAN.md) for full architecture details.
+- **[bc-replay/BC_REPLAY_QUICK_START.md](bc-replay/BC_REPLAY_QUICK_START.md)** - Execution and MFA setup
+- **[SECURITY.md](SECURITY.md)** - Security guidelines
+- **[page-scripting/PO Approval Workflow/](page-scripting/PO%20Approval%20Workflow/)** - Working multi-user example
 
 ## Quick Troubleshooting
 
 | Issue | Check |
 |-------|-------|
+| `setup.ps1` fails | Follow the fix hint printed next to each failed check |
 | Script fails | Test data exists in BC? Account has permissions? |
-| Variants not generated | Data files formatted correctly (plain text, one per line)? |
-| Need help | See [README.md](README.md) Troubleshooting section |
+| Workflow stops with validation errors | Read the error list — it tells you exactly what to fix |
+| Variants not generated correctly | Check warnings from the generator — field captions may differ |

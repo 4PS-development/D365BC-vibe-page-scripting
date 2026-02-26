@@ -436,6 +436,22 @@ textarea { resize: vertical; min-height: 50px; }
 <!-- Toast container -->
 <div class="toast-container" id="toast-container"></div>
 
+<!-- Export Guide Modal -->
+<div class="modal-overlay hidden" id="export-guide-overlay" onclick="if(event.target===this)closeExportGuide()">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header" style="display:flex;align-items:center;gap:10px">
+      <span style="color:var(--success);font-size:20px">&#10003;</span>
+      <span>Files Downloaded — What to do next</span>
+    </div>
+    <div class="modal-body" id="export-guide-body">
+      <!-- populated by JS -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="closeExportGuide()">Got it</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── JavaScript ──────────────────────────────────────────────────── -->
 <script>
 /* ════════════════════════════════════════════════════════════════════
@@ -1279,11 +1295,7 @@ function exportWorkflow() {
   downloadFile('workflow.json', JSON.stringify(wf, null, 2));
   setTimeout(() => downloadFile('users.sample.json', JSON.stringify(users, null, 2)), 300);
 
-  if (issues.warnings.length) {
-    toast(`Exported with ${issues.warnings.length} warning(s)`, 'info');
-  } else {
-    toast('Exported workflow.json + users.sample.json', 'success');
-  }
+  setTimeout(() => showExportGuide(issues.warnings), 500);
 }
 
 function downloadFile(name, content) {
@@ -1292,6 +1304,57 @@ function downloadFile(name, content) {
   const a = document.createElement('a');
   a.href = url; a.download = name; a.click();
   URL.revokeObjectURL(url);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   EXPORT GUIDE MODAL
+   ════════════════════════════════════════════════════════════════════ */
+
+function showExportGuide(warnings = []) {
+  const wfName = state.workflow.name || 'your workflow';
+  const warningHtml = warnings.length
+    ? `<div class="validation-msg warning" style="margin-bottom:16px"><strong>Warnings:</strong> ${warnings.map(w => escHtml(w)).join('; ')}</div>`
+    : '';
+
+  document.getElementById('export-guide-body').innerHTML = `
+    ${warningHtml}
+    <p style="margin-bottom:16px;line-height:1.6">
+      Two files were saved to your <strong>Downloads</strong> folder.
+      Follow these steps to complete the setup:
+    </p>
+    <ol style="padding-left:20px;line-height:2;font-size:13px">
+      <li>
+        <strong>Move both files</strong> to your workflow project folder<br>
+        <code style="font-size:11px;color:var(--text-muted)">page-scripting/${escHtml(wfName.replace(/\s+/g,'-'))}/</code>
+      </li>
+      <li>
+        <strong>Rename</strong> <code>users.sample.json</code> &rarr; <code>users.json</code>
+      </li>
+      <li>
+        <strong>Open <code>users.json</code></strong> and replace each placeholder with real credentials:
+        <ul style="margin-top:4px;padding-left:16px;list-style:disc;line-height:1.8;color:var(--text-muted)">
+          <li><code>username</code> — BC account email</li>
+          <li><code>password</code> — BC account password</li>
+          <li><code>mfa_seed</code> — TOTP seed (only if MFA is enabled; otherwise remove this line)</li>
+        </ul>
+      </li>
+      <li>
+        <strong>Run the workflow</strong> from the <code>bc-replay/</code> folder:<br>
+        <code style="display:block;margin-top:4px;padding:6px 10px;background:var(--bg);border-radius:4px;font-size:11px">
+          .\\Run-BCWorkflow.ps1 -WorkflowPath "..\\page-scripting\\${escHtml(wfName)}"
+        </code>
+      </li>
+    </ol>
+    <p style="margin-top:16px;font-size:12px;color:var(--text-muted)">
+      Need help? See <strong>page-scripting/${escHtml(wfName)}/Process.md</strong> for full instructions,
+      or run <code>.\\setup.ps1</code> from the repo root for a pre-flight check.
+    </p>
+  `;
+  document.getElementById('export-guide-overlay').classList.remove('hidden');
+}
+
+function closeExportGuide() {
+  document.getElementById('export-guide-overlay').classList.add('hidden');
 }
 
 /* ════════════════════════════════════════════════════════════════════

@@ -18,7 +18,17 @@ Multi-user workflow demonstrating sequential Purchase Order processing with diff
 
 ## How to Run
 
-### 1. Configure users.json
+### 1. Design the workflow (Workflow Builder)
+
+Open [tools/workflow-builder/index.html](../../tools/workflow-builder/index.html) in a browser.
+
+1. Add user roles (`purchaser`, `approver`)
+2. Drop your `.yml` scripts into the Script Library
+3. Create steps, assign roles and scripts
+4. Wire captures and injects using the properties panel
+5. Click **Export** and follow the post-export instructions
+
+### 2. Configure users.json
 
 Copy `users.sample.json` to `users.json` and fill in credentials for each role:
 
@@ -39,25 +49,27 @@ Copy `users.sample.json` to `users.json` and fill in credentials for each role:
 
 > `users.json` is gitignored - never commit real credentials.
 
-### 2. Update workflow.json
+### 3. Update workflow.json
 
-Edit `workflow.json` and set `bc_url` to your actual BC URL.
+If you are not using the Workflow Builder, edit `workflow.json` directly and set `bc_url` to your actual BC URL.
 
-### 3. Record your scripts
+See [workflow.schema.json](workflow.schema.json) for field documentation and VS Code autocomplete support.
+
+### 4. Record your scripts
 
 The `scripts/` folder contains working recordings. To create your own:
 
 1. **Record `create-po.yml`** - Record a Purchase Order creation in BC, ending with a `copy-value` step to capture the PO number
 2. **Record `Check PO with approver.yml`** - Record a PO lookup using `Parameters.'Purchase Order List.No.'` to filter by PO number
 
-### 4. Execute the workflow
+### 5. Execute the workflow
 
 ```powershell
 cd bc-replay
 .\Run-BCWorkflow.ps1 -WorkflowPath "..\page-scripting\PO Approval Workflow"
 ```
 
-### 5. View results
+### 6. View results
 
 ```
 results/

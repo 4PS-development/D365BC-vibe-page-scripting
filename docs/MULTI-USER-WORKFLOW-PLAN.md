@@ -1,4 +1,7 @@
-# Multi-User Workflow Orchestration & Result Capture Plan
+# Multi-User Workflow Orchestration & Result Capture — Developer Reference
+
+> **This is an internal developer/architecture document.** It contains research notes, approach comparisons, and implementation rationale.
+> For a user-friendly guide to creating and running multi-user workflows, see [page-scripting/PO Approval Workflow/Process.md](../page-scripting/PO%20Approval%20Workflow/Process.md) or open the [Workflow Builder](../tools/workflow-builder/index.html).
 
 > **Status:** Complete (tested end-to-end)  
 > **Date:** February 2026  

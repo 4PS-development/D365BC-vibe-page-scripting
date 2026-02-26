@@ -106,15 +106,50 @@ try {
             
             # Write to file
             $newContent | Out-File -FilePath $outputPath -Encoding UTF8
-            
-            Write-Host "Generated: $variantName.yml" -ForegroundColor Green
+
+            # ── Validate substitution ──────────────────────────────────────
+            # Check that item and location values were actually substituted.
+            # If the original BASE value is still present, the regex pattern
+            # did not match (e.g. due to a different BC field caption).
+            $substitutionOk = $true
+            if ($items.Count -gt 0) {
+                foreach ($otherItem in $items) {
+                    if ($otherItem -ne $item) {
+                        # If a different item value from the data file still appears
+                        # in this variant's value fields, substitution likely failed
+                        if ($newContent -match "(value:\s*`"$([regex]::Escape($otherItem))`")") {
+                            Write-Warning "Variant '$variantName.yml': item substitution may have failed. Original item value '$otherItem' still found. Check that the BASE script uses the expected field caption 'No.'."
+                            $substitutionOk = $false
+                        }
+                    }
+                }
+            }
+            if ($locations.Count -gt 0) {
+                foreach ($otherLoc in $locations) {
+                    if ($otherLoc -ne $location) {
+                        if ($newContent -match "(value:\s*`"$([regex]::Escape($otherLoc))`")") {
+                            Write-Warning "Variant '$variantName.yml': location substitution may have failed. Original location value '$otherLoc' still found. Check that the BASE script uses the field caption 'Location Code'."
+                            $substitutionOk = $false
+                        }
+                    }
+                }
+            }
+
+            if ($substitutionOk) {
+                Write-Host "  Generated: $variantName.yml" -ForegroundColor Green
+            } else {
+                Write-Host "  Generated (with warnings): $variantName.yml" -ForegroundColor Yellow
+            }
             $generatedCount++
         }
     }
     
     Write-Host "`nGeneration Complete!" -ForegroundColor Green
     Write-Host "Generated $generatedCount script variants in: $OutputFolder" -ForegroundColor Green
-    Write-Host "Ready for testing with npx-run.ps1" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Run variant tests:" -ForegroundColor Yellow
+    Write-Host "  cd ..\bc-replay" -ForegroundColor DarkGray
+    Write-Host "  .\npx-run.ps1 -ScriptPath `"$OutputFolder\*.yml`" -BcUrl `"https://businesscentral.dynamics.com/tenant/env`"" -ForegroundColor DarkGray
     
 } catch {
     Write-Error "Error generating variants: $($_.Exception.Message)"

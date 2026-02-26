@@ -1,4 +1,5 @@
 {
+  "$schema": "./workflow.schema.json",
   "name": "Purchase Order Approval Process",
   "description": "Multi-user workflow: Purchaser creates PO, Approver approves it",
   "bc_url": "https://4psconstruct.bc.dynamics.com/34b93528-e939-4e0b-a370-e6b753ae2514/latestrelease",

@@ -124,6 +124,101 @@ if ($DryRun) { Write-Host "  Mode     : DRY RUN (no execution)" -ForegroundColor
 if ($Headed) { Write-Host "  Browser  : Headed (visible)" -ForegroundColor Yellow }
 Write-Host ""
 
+# ── Pre-run validation ──────────────────────────────────────────────────────
+Write-Host "  Validating configuration..." -ForegroundColor DarkGray
+$validationErrors = @()
+
+# 1. BC URL must be a valid URL
+if (-not $workflow.bc_url) {
+    $validationErrors += "workflow.json: 'bc_url' is missing."
+} elseif ($workflow.bc_url -notmatch '^https?://') {
+    $validationErrors += "workflow.json: 'bc_url' does not look like a valid URL: '$($workflow.bc_url)'"
+} elseif ($workflow.bc_url -match 'YOUR_TENANT|your-tenant|placeholder') {
+    $validationErrors += "workflow.json: 'bc_url' still contains a placeholder value. Update it with your real BC URL."
+}
+
+# 2. All script paths must exist
+$definedStepIds = @($workflow.steps | ForEach-Object { $_.id })
+foreach ($step in $workflow.steps) {
+    $scriptsToCheck = @()
+    if ($step.scripts -and $step.scripts.Count -gt 0) { $scriptsToCheck = @($step.scripts) }
+    elseif ($step.script) { $scriptsToCheck = @($step.script) }
+    else { $validationErrors += "Step '$($step.id)': no 'script' or 'scripts' defined." }
+
+    foreach ($rel in $scriptsToCheck) {
+        $abs = Join-Path $workflowFolder $rel
+        if (-not (Test-Path $abs)) {
+            $validationErrors += "Step '$($step.id)': script not found: $abs"
+        }
+    }
+}
+
+# 3. All users referenced in steps must exist in users.json and have credentials
+foreach ($step in $workflow.steps) {
+    $role = $step.user
+    $userConfig = $users.PSObject.Properties[$role]
+    if (-not $userConfig) {
+        $validationErrors += "Step '$($step.id)': user role '$role' not found in users.json. Add it or update users.json."
+    } else {
+        $u = $userConfig.Value
+        if (-not $u.username -or $u.username -match 'yourtenant|placeholder|your-') {
+            $validationErrors += "Step '$($step.id)': username for role '$role' is missing or still a placeholder in users.json."
+        }
+        if (-not $u.password -or $u.password -match 'your-password-here|placeholder') {
+            $validationErrors += "Step '$($step.id)': password for role '$role' is missing or still a placeholder in users.json."
+        }
+    }
+}
+
+# 4. All inject expressions must reference captures defined in earlier steps
+$captureRegistry = @{}  # stepId -> @(varName, ...)
+foreach ($step in $workflow.steps) {
+    if ($step.capture) {
+        $captureRegistry[$step.id] = @($step.capture.PSObject.Properties.Name)
+    }
+    if ($step.inject) {
+        foreach ($prop in $step.inject.PSObject.Properties) {
+            $ref = $prop.Value
+            if ($ref -match '\{capture\.([^.]+)\.([^}]+)\}') {
+                $srcStep = $Matches[1]
+                $srcVar  = $Matches[2]
+                if ($captureRegistry.ContainsKey($srcStep)) {
+                    if ($srcVar -notin $captureRegistry[$srcStep]) {
+                        $validationErrors += "Step '$($step.id)': inject references undefined capture variable '$srcVar' in step '$srcStep'."
+                    }
+                } else {
+                    $validationErrors += "Step '$($step.id)': inject references step '$srcStep' which has no captures defined."
+                }
+            }
+        }
+    }
+}
+
+# 5. depends_on must reference a valid step ID
+foreach ($step in $workflow.steps) {
+    if ($step.depends_on -and $step.depends_on -notin $definedStepIds) {
+        $validationErrors += "Step '$($step.id)': depends_on references unknown step '$($step.depends_on)'."
+    }
+}
+
+# Report results
+if ($validationErrors.Count -gt 0) {
+    Write-Host ""
+    Write-Host "  Configuration errors found. Please fix these before running:" -ForegroundColor Red
+    Write-Host ""
+    foreach ($err in $validationErrors) {
+        Write-Host "  [X] $err" -ForegroundColor Red
+    }
+    Write-Host ""
+    Write-Host "  Tip: Open the Workflow Builder (tools/workflow-builder/index.html) to edit your workflow visually." -ForegroundColor Yellow
+    Write-Host "       Copy users.sample.json to users.json and fill in real credentials." -ForegroundColor Yellow
+    Write-Host ""
+    exit 1
+} else {
+    Write-Host "  All checks passed." -ForegroundColor Green
+    Write-Host ""
+}
+
 # ── Validate user credentials ──────────────────────────────────────────────
 $requiredUsers = $workflow.steps | ForEach-Object { $_.user } | Sort-Object -Unique
 

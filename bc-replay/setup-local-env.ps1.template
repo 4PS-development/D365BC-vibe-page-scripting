@@ -1,14 +1,14 @@
-# BC-Replay MFA - Local Environment Setup Template
+# BC-Replay - Local Environment Setup Template
 # 
 # INSTRUCTIONS:
-# 1. Copy this file to: setup-local-env.ps1 (it's in .gitignore)
+# 1. Copy this file to: setup-local-env.ps1 (it is in .gitignore)
 # 2. Replace the placeholder values with your actual credentials
 # 3. Run: . .\setup-local-env.ps1
-# 4. Test: .\npx-run-mfa.ps1 -TestAuthOnly
+# 4. Then run scripts with: .\npx-run.ps1 -ScriptPath "...\*.yml" -BcUrl "https://..."
 #
 # SECURITY WARNING:
 # - This file contains sensitive credentials
-# - NEVER commit this file to Git (it's protected by .gitignore)
+# - NEVER commit this file to Git (it is protected by .gitignore)
 # - Use secure password managers for team sharing
 # - Rotate credentials regularly
 
@@ -29,18 +29,18 @@ $env:BC_URL = "YOUR_BC_URL_HERE"
 # $env:BC_RESULT_DIR = ".\results"
 # $env:BC_SCRIPTS_PATH = ".\recordings\*.yml"
 
-Write-Host "✅ Environment variables configured" -ForegroundColor Green
+Write-Host "Environment variables configured" -ForegroundColor Green
 Write-Host ""
-Write-Host "Test authentication:" -ForegroundColor Cyan
-Write-Host "   .\npx-run-mfa.ps1 -TestAuthOnly" -ForegroundColor Gray
+Write-Host "Run variant batch tests:" -ForegroundColor Cyan
+Write-Host '   .\npx-run.ps1 -ScriptPath "..\page-scripting\MyProject\Variants\*.yml" -BcUrl $env:BC_URL' -ForegroundColor Gray
 Write-Host ""
-Write-Host "Run scripts:" -ForegroundColor Cyan
-Write-Host "   .\npx-run-mfa.ps1 -ScriptsPath '.\recordings\*.yml'" -ForegroundColor Gray
+Write-Host "Run multi-user workflow:" -ForegroundColor Cyan
+Write-Host '   .\Run-BCWorkflow.ps1 -WorkflowPath "..\page-scripting\PO Approval Workflow"' -ForegroundColor Gray
 Write-Host ""
 
 # Secure password input (alternative method)
-# Uncomment these lines to use secure password prompt:
+# Uncomment these lines to use a secure password prompt instead of storing plain text above:
 #
 # $securePassword = Read-Host -AsSecureString "Enter password for BC_USERNAME"
 # $env:BC_PASSWORD = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword))
-# Write-Host "✅ Password set securely" -ForegroundColor Green
+# Write-Host "Password set securely" -ForegroundColor Green

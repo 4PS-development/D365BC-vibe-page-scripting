@@ -74,10 +74,12 @@ A step can run multiple scripts sequentially under the same user credentials:
 ### Key Files
 
 | File | Purpose |
-|------|---------|-------|
-| `Run-BCWorkflow.ps1` | Orchestrator - executes workflow steps sequentially |
-| `Invoke-YamlPreprocess.ps1` | Updates native BC parameter `default:` values in YAML |
-| `New-WorkflowReport.ps1` | Generates workflow summary report (HTML + JSON) |
+|------|--------|
+| `Run-BCWorkflow.ps1` | Orchestrator — executes workflow steps sequentially |
+
+**Internal scripts** (used by the orchestrator, not called directly):
+- `Invoke-YamlPreprocess.ps1` — updates native BC parameter `default:` values in YAML
+- `New-WorkflowReport.ps1` — generates workflow summary report (HTML + JSON)
 
 📖 See [PO Approval Workflow](../page-scripting/PO%20Approval%20Workflow/) for a working example  
 📖 See [MULTI-USER-WORKFLOW-PLAN.md](../docs/MULTI-USER-WORKFLOW-PLAN.md) for architecture details
