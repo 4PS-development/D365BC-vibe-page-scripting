@@ -2,7 +2,7 @@
 
 Execute Business Central page scripting YAML files in automated pipelines using Playwright.
 
-## 🚀 Standard BC-Replay (No MFA)
+## 🚀 Quick Start
 
 ### Quick Start
 
@@ -84,32 +84,25 @@ A step can run multiple scripts sequentially under the same user credentials:
 
 ---
 
-## 🔐 MFA TOTP Support (NEW!)
+## 🔐 MFA Support (Native TOTP)
 
-**Problem:** Your organization requires MFA on all accounts, blocking automation.
+bc-replay natively supports TOTP-based MFA via built-in parameters - no patches or workarounds needed.
 
-**Solution:** Use TOTP (authenticator app) MFA with automated code generation.
+```powershell
+$env:BC_USERNAME = "testuser@yourtenant.onmicrosoft.com"
+$env:BC_PASSWORD  = "YourPassword123"
+$env:BC_MFA_SEED  = "YOUR_TOTP_SEED"
 
-### 👉 Complete MFA Solution
+npx replay .\recordings\*.yml `
+  -StartAddress https://businesscentral.dynamics.com/tenant/environment `
+  -Authentication AAD `
+  -UserNameKey BC_USERNAME `
+  -PasswordKey BC_PASSWORD `
+  -MultiFactorType TOTP `
+  -MultiFactorSecretKey BC_MFA_SEED
+```
 
-**[bc-replay-mfa-solution/](bc-replay-mfa-solution/)** - Everything you need to run bc-replay with MFA-enabled accounts:
-
-- **README.md** - Complete documentation and setup guide
-- **SOLUTION.md** - Technical details and approach
-
-### What You'll Need
-
-1. BC account with TOTP MFA enabled (authenticator app)
-2. The TOTP seed from account setup (one-time capture - see solution docs)
-3. Standard bc-replay installation
-4. 5 minutes to apply the patch
-
-### What It Does
-
-✅ Automatically generates TOTP codes during authentication  
-✅ Works with Microsoft Entra ID MFA  
-✅ Safe fallback for non-MFA accounts  
-✅ No changes to your existing scripts  
+**Requires a TOTP seed** captured once during account MFA setup. See [BC_REPLAY_QUICK_START.md - MFA section](BC_REPLAY_QUICK_START.md#-mfa-support-native-totp) for the full setup guide.
 
 ---
 
@@ -117,8 +110,7 @@ A step can run multiple scripts sequentially under the same user credentials:
 
 | Guide | Purpose |
 |-------|---------|
-| **[BC_REPLAY_QUICK_START.md](BC_REPLAY_QUICK_START.md)** | Standard bc-replay usage (no MFA) |
-| **[bc-replay-mfa-solution/](bc-replay-mfa-solution/)** | Complete MFA setup and usage |
+| **[BC_REPLAY_QUICK_START.md](BC_REPLAY_QUICK_START.md)** | Standard bc-replay usage and MFA setup |
 | **[bc-replay-capture-solution/](bc-replay-capture-solution/)** | Value capture (superseded by native `copy-value`) |
 | **[MULTI-USER-WORKFLOW-PLAN.md](../docs/MULTI-USER-WORKFLOW-PLAN.md)** | Workflow architecture and plan |
 
@@ -126,8 +118,9 @@ A step can run multiple scripts sequentially under the same user credentials:
 
 ## 🆘 Need Help?
 
-**Standard bc-replay:** See [BC_REPLAY_QUICK_START.md](BC_REPLAY_QUICK_START.md) troubleshooting section  
-**MFA setup:** See [bc-replay-mfa-solution/README.md](bc-replay-mfa-solution/README.md) troubleshooting section
+**Standard bc-replay:** See [BC_REPLAY_QUICK_START.md](BC_REPLAY_QUICK_START.md) troubleshooting section
+
+**MFA setup:** See [MFA section in BC_REPLAY_QUICK_START.md](BC_REPLAY_QUICK_START.md#-mfa-support-native-totp)
 
 **Resources:**
 - [BC-Replay npm Package](https://www.npmjs.com/package/@microsoft/bc-replay)
@@ -143,16 +136,13 @@ bc-replay/
 ├── Run-BCWorkflow.ps1           # Multi-user workflow orchestrator
 ├── Invoke-YamlPreprocess.ps1    # YAML parameter preprocessor (updates BC native defaults)
 ├── New-WorkflowReport.ps1       # Workflow summary report generator
-├── bc-replay-mfa-solution/      # MFA TOTP patch (for MFA accounts)
 ├── bc-replay-capture-solution/  # Value capture (superseded by native copy-value)
 ├── BC_REPLAY_QUICK_START.md     # Standard bc-replay guide
 ├── README.md                    # This file
 └── setup-local-env.ps1.template # Credential template
 ```
 
-**Development/utility files:**
-- `mfa-auth.js`, `test-mfa-auth.js`, `npx-run-mfa.ps1` - MFA development utilities
-- `totp-seed-helper.js` - TOTP seed validation tool
+**Example scripts:**
 - `*.yml` - Example scripts
 
 ---

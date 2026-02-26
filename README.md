@@ -6,7 +6,7 @@ Automate Business Central page testing using YAML-based scripts executed via Pla
 
 - 🔄 **Variant generation** - Automatically create test combinations from data files
 - **Multi-user workflows** - Orchestrate sequential steps across different user roles with state passing
-- 🔐 **MFA TOTP Support** - Use bc-replay with accounts that require multi-factor authentication
+- 🔐 **Native MFA support** - Run bc-replay against accounts with MFA enabled using `-MultiFactorType TOTP`
 - 🤖 **AI-assisted development** - A methodology for AI script generation
 
 ## 🚀 Quick Start
@@ -14,7 +14,7 @@ Automate Business Central page testing using YAML-based scripts executed via Pla
 1. **Generation** - See [page-scripting/PAGE_SCRIPTING_QUICK_START.md](page-scripting/PAGE_SCRIPTING_QUICK_START.md) for recording scripts in BC
 2. **Execution** - See [bc-replay/BC_REPLAY_QUICK_START.md](bc-replay/BC_REPLAY_QUICK_START.md) for running scripts in pipelines
 3. **Multi-User Workflows** - See [docs/MULTI-USER-WORKFLOW-PLAN.md](docs/MULTI-USER-WORKFLOW-PLAN.md) for orchestrating across users
-4. **MFA Support** - If using MFA accounts, see [bc-replay/bc-replay-mfa-solution/](bc-replay/bc-replay-mfa-solution/)
+4. **MFA accounts** - Use `-MultiFactorType TOTP -MultiFactorSecretKey BC_MFA_SEED` - see [bc-replay/BC_REPLAY_QUICK_START.md](bc-replay/BC_REPLAY_QUICK_START.md#-mfa-support-native-totp)
 5. **Examples** - Study `page-scripting/PO Post DirectionsEMEA/` for single-user or `page-scripting/PO Approval Workflow/` for multi-user
 6. **Full Guide** - Complete walkthrough in [GETTING_STARTED.md](GETTING_STARTED.md)
 
@@ -26,13 +26,11 @@ Automate Business Central page testing using YAML-based scripts executed via Pla
 - **Workflow projects** with multi-user step definitions
 - [PAGE_SCRIPTING_QUICK_START.md](page-scripting/PAGE_SCRIPTING_QUICK_START.md) - Recording guide
 
-**`bc-replay/`** - Test execution including multi-user workflows and MFA
+**`bc-replay/`** - Test execution including multi-user workflows
 - Script runner for automated pipelines
 - **Workflow orchestrator** for multi-user sequential execution
-- **MFA TOTP solution** for accounts with MFA enabled
 - **Native value capture** via BC's `copy-value` step (reads from replay log)
 - 📖 [BC_REPLAY_QUICK_START.md](bc-replay/BC_REPLAY_QUICK_START.md) - Execution guide
-- 📖 [bc-replay-mfa-solution/](bc-replay/bc-replay-mfa-solution/) - MFA setup
 - 📖 [bc-replay-capture-solution/](bc-replay/bc-replay-capture-solution/) - Value capture (superseded by native `copy-value`)
 
 **`docs/`** - Architecture and planning
@@ -53,15 +51,7 @@ Each step runs with its own credentials. Captured values (like a PO number) are 
 
 **See [page-scripting/PO Approval Workflow/](page-scripting/PO%20Approval%20Workflow/) for a working example.**
 
-## 🔐 MFA TOTP Support for bc-replay
-
-✅ **MFA solution available** for testing with BC accounts that require MFA:
-- Automatic TOTP code generation during login
-- Seamless integration with bc-replay
-
-**See [bc-replay/bc-replay-mfa-solution/](bc-replay/bc-replay-mfa-solution/) for complete setup**
-
-## 🔒 Security
+##  Security
 
 **Before using:**
 - Replace placeholder credentials in test scripts
@@ -76,7 +66,7 @@ Each step runs with its own credentials. Captured values (like a PO number) are 
 |-------|---------|| **[docs/OVERVIEW.md](docs/OVERVIEW.md)** | Executive summary with screenshots || **[GETTING_STARTED.md](GETTING_STARTED.md)** | Complete walkthrough and project overview |
 | **[SECURITY.md](SECURITY.md)** | Security guidelines and TOTP account setup |
 | **[page-scripting/](page-scripting/)** | Recording scripts and variant generation |
-| **[bc-replay/](bc-replay/)** | Execution, workflows, and MFA support |
+| **[bc-replay/](bc-replay/)** | Execution and multi-user workflows |
 | **[docs/MULTI-USER-WORKFLOW-PLAN.md](docs/MULTI-USER-WORKFLOW-PLAN.md)** | Multi-user workflow architecture and plan |
 | **[.github/copilot-instructions.md](.github/copilot-instructions.md)** | AI agent instructions and YAML patterns |
 

@@ -53,7 +53,7 @@ The script now uses relative paths (`.\Script Prompts\Run Me`). If your folder s
    - Never use production credentials
    - Create dedicated test accounts with minimal permissions
    - Use accounts without MFA for automation (in isolated test environments only)
-   - **OR** use TOTP-based MFA with the included solution (see below)
+   - **OR** use TOTP-based MFA - natively supported by bc-replay (see below)
 
 2. **Isolate Test Environments**
    - Run scripts only in sandbox/test environments
@@ -150,26 +150,39 @@ When in doubt, use placeholders and document what users need to configure.
 
 This way you maintain a clean version-controlled template while keeping your actual credentials safe and local.
 
+---
+
 ## 🔐 Setting Up TOTP for Test Accounts
 
-If your organization requires MFA for test accounts, you can use the included TOTP solution instead of requesting MFA exceptions.
+bc-replay natively supports TOTP-based MFA via `-MultiFactorType TOTP`. If your organization requires MFA on test accounts, this is the recommended approach.
 
 **Quick Setup:**
-1. Create a test account in Microsoft Entra ID (formerly Azure AD)
-2. Enable TOTP authentication (Authenticator app method)
-3. ⚠️ **CRITICAL:** Capture the TOTP seed during setup - it's **ONLY shown ONCE!** (see detailed instructions in [README.md](README.md#-setting-up-totp-for-test-accounts))
-4. Store the seed securely for use with bc-replay MFA solution
+1. Create a test account in Microsoft Entra ID
+2. Enable the Authenticator app (TOTP) method for MFA
+3. ⚠️ **CRITICAL:** During setup, use "Can't scan?" or "Setup key" to reveal the TOTP seed - **it is only shown ONCE**
+4. Store the seed securely (pipeline secret / environment variable)
 
-⚠️ **WARNING:** The TOTP seed is only visible during the initial QR code setup screen. Once you complete setup, you can never see it again. If you miss it, you must delete and recreate the authentication method.
+**Usage:**
+```powershell
+$env:BC_MFA_SEED = "YOUR_TOTP_SEED"
+
+npx replay .\recordings\*.yml `
+  -StartAddress https://businesscentral.dynamics.com/tenant/environment `
+  -Authentication AAD `
+  -UserNameKey BC_USERNAME `
+  -PasswordKey BC_PASSWORD `
+  -MultiFactorType TOTP `
+  -MultiFactorSecretKey BC_MFA_SEED
+```
 
 **Benefits:**
-- Comply with organizational MFA policies
-- No need for security exceptions
-- Test with production-like authentication flows
+- Comply with organisational MFA policies
+- No security exceptions needed
+- No patches or workarounds - fully built into bc-replay
 
-**Full Documentation:** See [bc-replay/bc-replay-mfa-solution/](bc-replay/bc-replay-mfa-solution/) and [README.md - TOTP Account Setup](README.md#-setting-up-totp-for-test-accounts).
+**Full Documentation:** See [bc-replay/BC_REPLAY_QUICK_START.md - MFA section](bc-replay/BC_REPLAY_QUICK_START.md#-mfa-support-native-totp).
 
 ---
 
-**Last Updated:** October 2025  
+**Last Updated:** February 2026  
 **Maintainer:** Project Team

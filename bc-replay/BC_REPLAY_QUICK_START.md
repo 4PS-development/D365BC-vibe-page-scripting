@@ -21,7 +21,7 @@ BC-replay is an npm package that executes Business Central page scripting YAML f
 
 **Authentication:**
 - Standard: Username/password accounts (no MFA)
-- **🔐 MFA TOTP: Fully supported!** See [bc-replay-mfa-solution/](bc-replay-mfa-solution/) for setup
+- **🔐 MFA TOTP: Natively supported!** Use `-MultiFactorType TOTP` - no patches or workarounds needed
 
 ## Quick Setup (5 Minutes)
 
@@ -95,7 +95,7 @@ npx replay .\recordings\*.yml `
   -ResultDir c:\bc-replay\results
 ```
 
-💡 **Note:** This is for standard (non-MFA) accounts. For MFA-enabled accounts, see the **[MFA TOTP Support section](#-mfa-totp-support-for-automated-testing)** below.
+💡 **Note:** This is for standard (non-MFA) accounts. For MFA-enabled accounts, see the **[MFA Support section](#-mfa-support-native-totp)** below.
 
 ### Advanced Options
 
@@ -119,6 +119,71 @@ npx replay .\recordings\*.yml `
   -Headed `
   -ResultDir c:\bc-replay\results
 ```
+
+## 🔐 MFA Support (Native TOTP)
+
+bc-replay natively supports TOTP-based MFA (authenticator app) via built-in parameters - no patching or custom scripts required.
+
+### How It Works
+
+1. Your test account has MFA enabled (authenticator app / TOTP method)
+2. You capture the TOTP seed **once** during account setup
+3. Store the seed in an environment variable
+4. Pass `-MultiFactorType TOTP -MultiFactorSecretKey <env-var-name>` to bc-replay
+5. bc-replay automatically generates the time-based OTP during login
+
+### Setup
+
+**Step 1: Create a test account with TOTP MFA**
+1. Create a test account in Microsoft Entra ID
+2. Enable the Authenticator app (TOTP) method for MFA
+3. **CRITICAL:** During setup, the QR code screen shows a "Can't scan?" or "Setup key" link - this is your TOTP seed
+4. Copy and save that seed securely - **it is only shown once**
+
+> ⚠️ The seed is never shown again after setup. If you miss it, delete and recreate the MFA method.
+
+**Step 2: Store the seed in an environment variable**
+```powershell
+$env:BC_MFA_SEED = "YOUR_TOTP_SEED_HERE"
+```
+
+**Step 3: Run bc-replay with TOTP support**
+```powershell
+$env:BC_USERNAME = "testuser@yourtenant.onmicrosoft.com"
+$env:BC_PASSWORD  = "YourPassword123"
+$env:BC_MFA_SEED  = "YOUR_TOTP_SEED_HERE"
+
+npx replay .\recordings\*.yml `
+  -StartAddress https://businesscentral.dynamics.com/tenant/environment `
+  -Authentication AAD `
+  -UserNameKey BC_USERNAME `
+  -PasswordKey BC_PASSWORD `
+  -MultiFactorType TOTP `
+  -MultiFactorSecretKey BC_MFA_SEED `
+  -ResultDir c:\bc-replay\results
+```
+
+### CI/CD Pipeline with MFA
+
+Store `BC_MFA_SEED` as a pipeline secret (GitHub Secrets, Azure Key Vault, etc.) alongside your username and password:
+
+```powershell
+# GitHub Actions example (secrets set in repo settings)
+npx replay .\recordings\*.yml `
+  -StartAddress $env:BC_URL `
+  -Authentication AAD `
+  -UserNameKey BC_USERNAME `
+  -PasswordKey BC_PASSWORD `
+  -MultiFactorType TOTP `
+  -MultiFactorSecretKey BC_MFA_SEED `
+  -ResultDir ./test-results
+```
+
+### Resources
+- [Playwright Authentication docs](https://playwright.dev/docs/auth) - storageState reuse pattern
+- [bc-replay npm package](https://www.npmjs.com/package/@microsoft/bc-replay) - parameter reference
+
+---
 
 ## Viewing Results
 
@@ -248,11 +313,11 @@ $env:BC_URL = "https://businesscentral.dynamics.com/tenant/sandbox"
 | Issue | Cause | Solution |
 |-------|-------|----------|
 | "Module not found" | bc-replay not installed | Run `npm i @microsoft/bc-replay --save` |
-| "Authentication failed" | Wrong credentials or MFA blocking | Verify credentials; for MFA accounts use [bc-replay-mfa-solution](bc-replay-mfa-solution/) |
+| "Authentication failed" | Wrong credentials or MFA blocking | Verify credentials; for MFA accounts add `-MultiFactorType TOTP -MultiFactorSecretKey BC_MFA_SEED` |
 | "Page not found" | Wrong BC URL | Verify `-StartAddress` URL is accessible |
 | Scripts pass locally but fail in pipeline | Different data in environments | Ensure test data exists in both environments |
 | "Chromium not found" | Playwright browsers not installed | Run `npx playwright install chromium` |
-| MFA prompt appears | Account has MFA enabled | Use [bc-replay-mfa-solution](bc-replay-mfa-solution/) for TOTP MFA support |
+| MFA prompt appears | Account has MFA enabled | Add `-MultiFactorType TOTP -MultiFactorSecretKey BC_MFA_SEED` - see [MFA section](#-mfa-support-native-totp) |
 
 ## Project Structure Example
 
@@ -327,11 +392,11 @@ See [PO Approval Workflow](../page-scripting/PO%20Approval%20Workflow/) for a co
 - Run scripts in consistent order for reproducible results
 - Use glob patterns (`*.yml`) to run suites
 - Add bc-replay folder to CI/CD pipeline
-- **Use [bc-replay-mfa-solution](bc-replay-mfa-solution/) for MFA-enabled accounts**
+- **Use `-MultiFactorType TOTP` for MFA-enabled accounts** - natively supported, no patching needed
 
 ❌ **DON'T:**
 - Commit credentials to version control
-- Use MFA-enabled accounts without the MFA solution (they'll fail)
+- Forget to capture the TOTP seed during account setup - it's shown only once
 - Run headed mode in CI/CD pipelines (causes hanging)
 - Assume data exists without validation
 - Mix Windows auth and UserPassword auth in same pipeline
