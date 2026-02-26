@@ -41,7 +41,7 @@
   "definitions": {
     "step": {
       "type": "object",
-      "description": "A single workflow step — one YAML script (or a set of scripts) executed as a named user role.",
+      "description": "A single workflow step. Can be a BC page scripting step (bc-replay) or a direct BC API call (bc-api).",
       "required": ["id", "name", "user"],
       "additionalProperties": false,
       "properties": {
@@ -49,26 +49,32 @@
           "type": "string",
           "pattern": "^[a-z0-9-_]+$",
           "description": "Unique identifier for this step. Used in depends_on and capture expression references. Lowercase letters, numbers, hyphens and underscores only.",
-          "examples": ["create-po", "approve-po"]
+          "examples": ["create-po", "approve-po", "create-customer"]
         },
         "name": {
           "type": "string",
           "description": "Human-readable name for this step. Shown in the report.",
-          "examples": ["Create Purchase Order", "Check PO with approver"]
+          "examples": ["Create Purchase Order", "Check PO with approver", "Create Customer via API"]
         },
         "user": {
           "type": "string",
-          "description": "The role key that maps to a user entry in users.json. Must match a top-level key in users.json.",
-          "examples": ["purchaser", "approver"]
+          "description": "The role key that maps to a user entry in users.json. For bc-api steps, use 'system' (or any role key) to indicate the swim lane position.",
+          "examples": ["purchaser", "approver", "system"]
+        },
+        "type": {
+          "type": "string",
+          "enum": ["bc-replay", "bc-api"],
+          "default": "bc-replay",
+          "description": "Step type. 'bc-replay' runs a YAML page script via npx replay (default). 'bc-api' calls the BC REST API directly using an Entra ID app registration."
         },
         "script": {
           "type": "string",
-          "description": "Relative path to a single YAML script file. Use either 'script' OR 'scripts', not both.",
+          "description": "Relative path to a single YAML script file. Used when type is 'bc-replay'. Use either 'script' OR 'scripts', not both.",
           "examples": ["./scripts/create-po.yml"]
         },
         "scripts": {
           "type": "array",
-          "description": "List of YAML script files to run in sequence for this step. Use either 'script' OR 'scripts', not both.",
+          "description": "List of YAML script files to run in sequence for this step. Used when type is 'bc-replay'. Use either 'script' OR 'scripts', not both.",
           "minItems": 1,
           "items": {
             "type": "string",
@@ -76,14 +82,47 @@
           },
           "examples": [["./scripts/step1.yml", "./scripts/step2.yml"]]
         },
+        "app_registration": {
+          "type": "string",
+          "description": "Key into app-registrations.json that provides the Entra ID app registration credentials for this API call. Used when type is 'bc-api'.",
+          "examples": ["bc-custom-api"]
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PATCH", "PUT", "DELETE"],
+          "description": "HTTP method for the API call. Used when type is 'bc-api'. Defaults to 'GET'.",
+          "examples": ["POST", "GET"]
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "The BC API endpoint URL. Supports {{tenantId}}, {{environmentName}}, {{companyId}} placeholders (resolved from app-registrations.json) and {capture.stepId.varName} capture references. Used when type is 'bc-api'.",
+          "examples": [
+            "https://4psconstruct.api.bc.dynamics.com/v2.0/{{tenantId}}/{{environmentName}}/api/4ps/custom/v1.0/companies({{companyId}})/customers"
+          ]
+        },
+        "body_template": {
+          "type": "object",
+          "description": "JSON body to send with the API call. Values can contain {capture.stepId.varName} references that are resolved at runtime. Used when type is 'bc-api'.",
+          "examples": [{ "no": "{{no}}", "displayName": "Test Customer", "city": "Amsterdam" }]
+        },
+        "capture_response": {
+          "type": "object",
+          "description": "Values to capture from the API response JSON. The key is a variable name; the value is a JSONPath expression (e.g. $.id, $.no). Captured values are available to later steps via {capture.stepId.varName}. Used when type is 'bc-api'.",
+          "additionalProperties": {
+            "type": "string",
+            "description": "JSONPath expression into the API response. Simple dot-paths supported: $.field, $.field.nested.",
+            "examples": ["$.id", "$.no", "$.systemId"]
+          },
+          "examples": [{ "customer_id": "$.id", "customer_no": "$.no", "customer_systemId": "$.systemId" }]
+        },
         "depends_on": {
           "type": "string",
-          "description": "Step 'id' that must complete successfully before this step runs. Use when inject references a capture from another step.",
+          "description": "Step 'id' that must complete successfully before this step runs.",
           "examples": ["create-po"]
         },
         "capture": {
           "type": "object",
-          "description": "Values to capture from the BC page after this step runs. The key is a variable name you choose; the value is 'Page Title - Field Caption' as it appears in BC. Captured values are available to later steps via {capture.stepId.varName}.",
+          "description": "Values to capture from the BC page after this step runs (bc-replay steps only). The key is a variable name; the value is 'Page Title - Field Caption' as it appears in BC.",
           "additionalProperties": {
             "type": "string",
             "description": "The BC field identifier in the format 'Page Title - Field Caption'.",
@@ -93,7 +132,7 @@
         },
         "inject": {
           "type": "object",
-          "description": "Field values to inject into this step's YAML script before running. The key is 'PageTitle.FieldCaption' (dot-separated, matching the YAML field target); the value is a capture expression using the syntax {capture.stepId.varName}.",
+          "description": "Field values to inject into this step's YAML script before running (bc-replay steps only). The key is 'PageTitle.FieldCaption'; the value is a {capture.stepId.varName} expression.",
           "additionalProperties": {
             "type": "string",
             "pattern": "^\\{capture\\.[a-z0-9-_]+\\.[a-z0-9_]+\\}$",
@@ -103,10 +142,19 @@
           "examples": [{ "Purchase Order List.No.": "{capture.create-po.po_number}" }]
         }
       },
-      "oneOf": [
-        { "required": ["script"], "not": { "required": ["scripts"] } },
-        { "required": ["scripts"], "not": { "required": ["script"] } }
-      ]
+      "if": {
+        "properties": { "type": { "const": "bc-api" } },
+        "required": ["type"]
+      },
+      "then": {
+        "required": ["endpoint", "app_registration"]
+      },
+      "else": {
+        "oneOf": [
+          { "required": ["script"], "not": { "required": ["scripts"] } },
+          { "required": ["scripts"], "not": { "required": ["script"] } }
+        ]
+      }
     }
   }
 }

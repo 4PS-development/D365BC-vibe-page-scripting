@@ -1,0 +1,16 @@
+{
+  "_readme": "Copy this file to app-registrations.json and fill in your Entra ID app registration values. app-registrations.json is gitignored. See Process.md for setup instructions.",
+  "bc-custom-api": {
+    "description": "Entra ID app registration for 4PS custom BC API access",
+    "_client_id_hint": "Azure Portal > App registrations > your app > Application (client) ID",
+    "client_id": "your-client-id-here",
+    "_client_secret_hint": "Azure Portal > App registrations > your app > Certificates & secrets > client secret Value",
+    "client_secret": "your-client-secret-here",
+    "_tenant_id_hint": "Azure Portal > App registrations > your app > Directory (tenant) ID",
+    "tenant_id": "your-tenant-id-here",
+    "_environment_name_hint": "The BC environment name as it appears in the URL, e.g. 'Production' or 'latestrelease'",
+    "environment_name": "latestrelease",
+    "_company_id_hint": "BC company GUID - find it via GET .../companies or from the BC Admin Center",
+    "company_id": "your-company-guid-here"
+  }
+}

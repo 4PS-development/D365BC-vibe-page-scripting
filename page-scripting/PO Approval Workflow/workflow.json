@@ -2,7 +2,7 @@
   "$schema": "./workflow.schema.json",
   "name": "Purchase Order Approval Process",
   "description": "Multi-user workflow: Purchaser creates PO, Approver approves it",
-  "bc_url": "https://4psconstruct.bc.dynamics.com/34b93528-e939-4e0b-a370-e6b753ae2514/latestrelease",
+  "bc_url": "https://4psconstruct.bc.dynamics.com/8f94bd30-45c4-40a9-9898-8dd15063a020/FpsDemo",
   "steps": [
     {
       "id": "create-po",
@@ -18,9 +18,27 @@
       "name": "Check PO with approver",
       "user": "approver",
       "script": "./scripts/Check PO with approver.yml",
-      "depends_on": "create-po",
       "inject": {
         "Purchase Order List.No.": "{capture.create-po.po_number}"
+      },
+      "depends_on": "create-po"
+    },
+    {
+      "id": "create-customer",
+      "name": "Create Test Customer via API",
+      "user": "system",
+      "type": "bc-api",
+      "method": "POST",
+      "endpoint": "https://4psconstruct.api.bc.dynamics.com/v2.0/{{tenantId}}/{{environmentName}}/api/v2.0/companies({{companyId}})/customers",
+      "app_registration": "bc-custom-api",
+      "body_template": {
+        "displayName": "Test Customer (Workflow)",
+        "city": "Amsterdam"
+      },
+      "capture_response": {
+        "customer_id": "$.id",
+        "customer_no": "$.number",
+        "customer_systemId": "$.systemId"
       }
     }
   ]

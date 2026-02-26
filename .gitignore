@@ -13,6 +13,7 @@ BC.code-workspace
 # ===== BC PAGE SCRIPTING SPECIFIC =====
 # Credentials and sensitive information
 **/users.json
+**/app-registrations.json
 **/config.local.*
 **/secrets.*
 **/.env
