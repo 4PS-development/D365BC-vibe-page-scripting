@@ -503,6 +503,43 @@ app.post('/api/projects/:name/seed', async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ROUTES — Evaluate Workflow Quality
+// ══════════════════════════════════════════════════════════════════════════════
+
+app.post('/api/evaluate', (req, res) => {
+  const { project } = req.body;
+  if (!project) return res.status(400).json({ error: 'project is required' });
+
+  const projectPath = path.join(ROOT, 'page-scripting', project);
+  const wfPath = path.join(projectPath, 'workflow.json');
+  if (!fs.existsSync(wfPath)) return res.status(404).json({ error: 'workflow.json not found in project' });
+
+  const outputPath = path.join(projectPath, 'results');
+  res.json({ ok: true });
+
+  const psScript = path.join(ROOT, 'bc-replay', 'Test-WorkflowQuality.ps1');
+  const proc = spawnPsFile(psScript, [
+    '-WorkflowPath', projectPath,
+    '-OutputPath', outputPath,
+  ]);
+
+  proc.stdout.on('data', d => broadcast({ type: 'evaluate-output', data: d.toString() }));
+  proc.stderr.on('data', d => broadcast({ type: 'evaluate-output', data: d.toString() }));
+  proc.on('close', code => {
+    // Read the JSON report if available
+    let report = null;
+    const jsonReport = path.join(outputPath, 'evaluation-report.json');
+    const htmlReport = path.join(outputPath, 'evaluation-report.html');
+    try { if (fs.existsSync(jsonReport)) report = JSON.parse(fs.readFileSync(jsonReport, 'utf8')); } catch {}
+    const htmlUrl = fs.existsSync(htmlReport)
+      ? `/result-files/${encodeURIComponent(project)}/results/evaluation-report.html`
+      : null;
+    broadcast({ type: 'evaluate-done', code, report, htmlUrl });
+  });
+  proc.on('error', e => broadcast({ type: 'evaluate-done', code: 1, error: e.message }));
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ROUTES — Results
 // ══════════════════════════════════════════════════════════════════════════════
 

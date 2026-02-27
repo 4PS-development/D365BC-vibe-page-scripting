@@ -38,6 +38,7 @@ function activateTab(tabId) {
   if (tabId === 'workflow')     loadWorkflowProjects();
   if (tabId === 'variants')     loadVariantProjects();
   if (tabId === 'run')          loadRunPage();
+  if (tabId === 'evaluate')     loadEvaluatePage();
   if (tabId === 'results')      loadResults();
   // Tips tab is static — no data to load
 }
@@ -62,6 +63,8 @@ function connectWs() {
 
     if (msg.type === 'run-output') appendOutput('run-output', msg.data);
     if (msg.type === 'run-done')   onRunDone(msg);
+
+    if (msg.type === 'evaluate-done')   onEvaluateDone(msg);
 
     if (msg.type === 'files-changed') onFilesChanged(msg);
   };
@@ -833,7 +836,83 @@ document.getElementById('btn-reset-results').addEventListener('click', async () 
     alert('Failed to reset results: ' + e.message);
   }
 });
+// ── Evaluate ─────────────────────────────────────────────────────────────────────
+async function loadEvaluatePage() {
+  const projects = await GET('/projects').catch(() => []);
+  const sel = document.getElementById('eval-project');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">\u2014 select project \u2014</option>';
+  projects.filter(p => p.hasWorkflow).forEach(p => sel.appendChild(new Option(p.name, p.name)));
+  if (cur && projects.find(p => p.name === cur)) sel.value = cur;
+}
 
+document.getElementById('btn-evaluate').addEventListener('click', async () => {
+  const project = document.getElementById('eval-project').value;
+  if (!project) { alert('Select a project.'); return; }
+
+  document.getElementById('eval-summary-card').style.display = 'none';
+  document.getElementById('eval-report-frame').style.display = 'none';
+  document.getElementById('btn-eval-open-report').style.display = 'none';
+
+  const btn = document.getElementById('btn-evaluate');
+  btn.disabled = true; btn.textContent = 'Evaluating\u2026';
+  try {
+    await POST('/evaluate', { project });
+  } catch (e) {
+    alert(`Evaluation failed: ${e.message}`);
+    btn.disabled = false; btn.textContent = 'Evaluate';
+  }
+});
+
+function onEvaluateDone(msg) {
+  const btn = document.getElementById('btn-evaluate');
+  btn.disabled = false; btn.textContent = 'Evaluate';
+
+  if (msg.code !== 0) return;
+
+  const report = msg.report;
+  if (!report) return;
+
+  const card = document.getElementById('eval-summary-card');
+  card.style.display = '';
+
+  const gradeColors = { A: '#1a7a3f', B: '#2e7d32', C: '#f57c00', D: '#e65100', F: '#c0392b' };
+  const gc = gradeColors[report.grade] || '#666';
+  document.getElementById('eval-grade').innerHTML = `<span style="background:${gc}">${esc(report.grade)}</span>`;
+  document.getElementById('eval-summary-title').textContent = `Quality Score: ${report.overall_score}/100`;
+  document.getElementById('eval-summary-meta').textContent =
+    `${report.counts.errors} errors \u2022 ${report.counts.warnings} warnings \u2022 ${report.counts.info} suggestions`;
+
+  const scores = report.scores;
+  const scoreLabels = {
+    validation_ratio: 'Validation Coverage',
+    script_coverage: 'Script Coverage',
+    capture_usage: 'Capture Usage',
+    chain_integrity: 'Chain Integrity',
+  };
+  let scoresHtml = '';
+  for (const [key, label] of Object.entries(scoreLabels)) {
+    const val = scores[key] ?? 0;
+    const color = val >= 75 ? 'var(--success)' : val >= 40 ? 'var(--warning)' : 'var(--error)';
+    scoresHtml += `
+      <div class="eval-score-item">
+        <div class="eval-score-label">${esc(label)}</div>
+        <div class="eval-score-bar"><div class="eval-score-fill" style="width:${val}%;background:${color}"></div></div>
+        <div class="eval-score-val" style="color:${color}">${val}%</div>
+      </div>`;
+  }
+  document.getElementById('eval-scores').innerHTML = scoresHtml;
+
+  if (msg.htmlUrl) {
+    const frame = document.getElementById('eval-report-frame');
+    frame.style.display = '';
+    document.getElementById('eval-iframe').src = msg.htmlUrl;
+
+    const openBtn = document.getElementById('btn-eval-open-report');
+    openBtn.style.display = '';
+    openBtn.onclick = () => window.open(msg.htmlUrl, '_blank');
+  }
+}
 // ── Utils ─────────────────────────────────────────────────────────────────────
 function esc(s) {
   return String(s ?? '')

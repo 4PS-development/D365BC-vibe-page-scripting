@@ -26,6 +26,9 @@
       <li class="nav-item" data-tab="variants">
         <span class="nav-icon">⊞</span><span class="nav-label">Variant Generator</span>
       </li>
+      <li class="nav-item" data-tab="evaluate">
+        <span class="nav-icon">&#x2714;</span><span class="nav-label">Workflow Evaluation</span>
+      </li>
       <li class="nav-item" data-tab="run">
         <span class="nav-icon">▶</span><span class="nav-label">Run</span>
       </li>
@@ -228,6 +231,42 @@
       <div class="card mt-md" id="run-output-card" style="display:none">
         <h2>Live Output</h2>
         <pre id="run-output" class="output-pane"></pre>
+      </div>
+    </section>
+
+    <!-- ── EVALUATE ── -->
+    <section id="tab-evaluate" class="tab">
+      <div class="page-header">
+        <h1>Evaluate Workflow</h1>
+      </div>
+      <div class="card">
+        <p class="eval-intro">Analyse your workflow and YAML scripts against testing best practices. The evaluator checks for missing validations, parameter flow integrity, record continuity between steps, and produces a quality scorecard with actionable recommendations.</p>
+        <div class="form-grid mt-md">
+          <label>Project
+            <select id="eval-project" class="input">
+              <option value="">— select project —</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions mt-md">
+          <button class="btn btn-primary" id="btn-evaluate">Evaluate</button>
+        </div>
+      </div>
+      <div id="eval-summary-card" class="card mt-md" style="display:none">
+        <div class="eval-summary-header">
+          <div id="eval-grade" class="eval-grade"></div>
+          <div class="eval-summary-info">
+            <h2 id="eval-summary-title"></h2>
+            <p id="eval-summary-meta" class="eval-meta"></p>
+          </div>
+        </div>
+        <div id="eval-scores" class="eval-scores"></div>
+        <div class="actions mt-md">
+          <button class="btn btn-secondary" id="btn-eval-open-report" style="display:none">Open Full Report</button>
+        </div>
+      </div>
+      <div id="eval-report-frame" class="eval-report-frame" style="display:none">
+        <iframe id="eval-iframe" title="Evaluation Report"></iframe>
       </div>
     </section>
 

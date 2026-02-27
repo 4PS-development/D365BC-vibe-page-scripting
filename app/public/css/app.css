@@ -630,3 +630,98 @@ label small { font-weight: 400; color: var(--text-muted); }
 .tips-link-title { font-size: 13px; font-weight: 600; color: var(--primary); }
 .tips-link-desc  { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
 
+/* ── Evaluate Tab ────────────────────────────────────────────────────────── */
+.eval-intro {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.eval-summary-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.eval-grade span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  font-size: 26px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.eval-summary-info h2 {
+  font-size: 18px;
+  margin-bottom: 2px;
+  border: none;
+  padding: 0;
+}
+
+.eval-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.eval-scores {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.eval-score-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.eval-score-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.eval-score-bar {
+  flex: 1;
+  height: 6px;
+  background: #e0e0e0;
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 60px;
+}
+
+.eval-score-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .4s;
+}
+
+.eval-score-val {
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 36px;
+  text-align: right;
+}
+
+.eval-report-frame {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.eval-report-frame iframe {
+  width: 100%;
+  height: 70vh;
+  border: none;
+}
+
