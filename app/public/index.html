@@ -32,6 +32,9 @@
       <li class="nav-item" data-tab="results">
         <span class="nav-icon">📊</span><span class="nav-label">Results</span>
       </li>
+      <li class="nav-item" data-tab="tips">
+        <span class="nav-icon">💡</span><span class="nav-label">Tips &amp; Tricks</span>
+      </li>
     </ul>
     <div class="sidebar-footer">
       <span id="ws-status" class="status-dot disconnected" title="Server connection"></span>
@@ -283,6 +286,185 @@
           <img id="lightbox-img" src="" alt="Screenshot" />
         </div>
       </div>
+    </section>
+
+    <!-- ── TIPS & TRICKS ── -->
+    <section id="tab-tips" class="tab">
+      <div class="page-header">
+        <h1>Tips &amp; Tricks</h1>
+      </div>
+
+      <p class="tips-intro">A curated collection of best practices for building reliable BC page scripts and multi-step workflows. Sourced from <a href="https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-page-scripting" target="_blank" rel="noopener">official Microsoft documentation</a> and hands-on project experience.</p>
+
+      <!-- Recording -->
+      <div class="card tips-card">
+        <h2><span class="tips-icon">🎬</span> Recording Best Practices</h2>
+        <ul class="tips-list">
+          <li><strong>Start from a well-known page.</strong> Always begin recording from the Role Center or a predictable starting point &mdash; playback starts from the current page.</li>
+          <li><strong>Create new entities for tests.</strong> Create a new customer, vendor, or item specifically for the test rather than relying on data that may not exist during playback.</li>
+          <li><strong>Filter grids before selecting.</strong> When selecting a value in a list or grid, filter it so the desired value appears first. This avoids fragile row-index dependencies.</li>
+          <li><strong>Keep recordings small and focused.</strong> Divide large processes into smaller scripts (e.g. setup user &rarr; create customer &rarr; create order &rarr; post order). Smaller scripts are easier to maintain and debug.</li>
+          <li><strong>Avoid multi-line selections.</strong> If you select multiple records in a list during recording, only the last selection is captured. Use individual steps instead.</li>
+          <li><strong>Don&rsquo;t depend on volatile data.</strong> Avoid relying on dates, auto-numbers, or other data that changes between runs. Use parameters or expressions instead.</li>
+        </ul>
+      </div>
+
+      <!-- YAML Structure -->
+      <div class="card tips-card">
+        <h2><span class="tips-icon">📝</span> YAML Script Structure</h2>
+        <ul class="tips-list">
+          <li><strong>Never manually craft YAML from scratch.</strong> Always record a BASE script in BC first, then edit only the values you need to change. The YAML format must match what BC&rsquo;s recorder produces exactly.</li>
+          <li><strong>Preserve <code>runtimeRef</code> values.</strong> These are generated during recording and identify page instances. Changing them breaks playback.</li>
+          <li><strong>Understand the action types.</strong> Common types are <code>input</code> (set field value), <code>invoke</code> (click action/button), <code>focus</code> (move to a control), <code>navigate</code> (open page), and <code>set-current-row</code> (move to next line in a repeater).</li>
+          <li><strong>Use the <code>description</code> field.</strong> Each step has a description that documents what the step does. It&rsquo;s useful for debugging but doesn&rsquo;t affect playback.</li>
+          <li><strong>Handle optional pages.</strong> If a confirmation dialog or other page may or may not appear, mark it as optional in the recording. Otherwise playback fails when the page doesn&rsquo;t show.</li>
+        </ul>
+        <div class="tips-code">
+          <h3>Example: Header field input</h3>
+          <pre><code>- type: input
+  target:
+    - page: Purchase Order
+      runtimeRef: b385
+    - field: Buy-from Vendor No.
+  value: "1000"
+  description: Input &lt;value&gt;1000&lt;/value&gt; into &lt;caption&gt;Vendor No.&lt;/caption&gt;</code></pre>
+        </div>
+        <div class="tips-code">
+          <h3>Example: Line entry (repeater)</h3>
+          <pre><code>- type: focus
+  target:
+    - page: Purchase Order
+      runtimeRef: b385
+    - part: PurchLines
+    - page: Purchase Order Subform
+    - repeater: Control1
+    - field: No.
+  description: Focus &lt;caption&gt;No.&lt;/caption&gt;
+- type: input
+  target:
+    - page: Purchase Order
+      runtimeRef: b385
+    - part: PurchLines
+    - page: Purchase Order Subform
+    - repeater: Control1
+    - field: No.
+  value: "1896-S"
+  description: Input &lt;value&gt;1896-S&lt;/value&gt; into &lt;caption&gt;No.&lt;/caption&gt;</code></pre>
+        </div>
+      </div>
+
+      <!-- Parameters -->
+      <div class="card tips-card">
+        <h2><span class="tips-icon">🔧</span> Parameters &amp; Expressions</h2>
+        <ul class="tips-list">
+          <li><strong>Parameterize variable values.</strong> Instead of hardcoding customer numbers, item IDs, or dates, define parameters so the same script can be reused across scenarios.</li>
+          <li><strong>Use Power Fx expressions.</strong> Property values support Power Fx &mdash; for example <code>"Customer " &amp; Today()</code> generates a dynamic name, and <code>Clipboard.'Field' + 1</code> validates an incremented value.</li>
+          <li><strong>Pass parameters between scripts.</strong> When using &ldquo;Include a script&rdquo; to chain recordings, define matching parameters in both the host and included scripts to share values.</li>
+          <li><strong>Reference session info.</strong> Use <code>Session.'User ID'</code> in expressions to filter lists by the current user or fill in user-specific fields dynamically.</li>
+        </ul>
+      </div>
+
+      <!-- Validation -->
+      <div class="card tips-card">
+        <h2><span class="tips-icon">✅</span> Validation &amp; Conditional Steps</h2>
+        <ul class="tips-list">
+          <li><strong>Add validation steps.</strong> Right-click a control during recording and select <em>Page Scripting &gt; Validate &gt; Current Value</em> to assert expected outcomes. This turns scripts into real tests.</li>
+          <li><strong>Use clipboard for cross-step validation.</strong> Copy a value from one control, then validate it in another using the clipboard reference.</li>
+          <li><strong>Make steps conditional.</strong> Use <em>Add conditional steps when</em> to handle branches &mdash; e.g. only run cleanup steps when a list has rows.</li>
+          <li><strong>Add wait steps strategically.</strong> Insert wait steps after actions that trigger background processing (like posting) to give BC time to complete before the next step.</li>
+        </ul>
+      </div>
+
+      <!-- Workflow Design -->
+      <div class="card tips-card">
+        <h2><span class="tips-icon">⬡</span> Workflow Design Tips</h2>
+        <ul class="tips-list">
+          <li><strong>One process per project folder.</strong> Keep each business process (PO creation, approval, posting) in its own folder with its own BASE script, data files, and variants.</li>
+          <li><strong>Chain scripts with &ldquo;Include&rdquo;.</strong> Break large flows into reusable building blocks and include them in a master script. This allows parallel development and easier debugging.</li>
+          <li><strong>Set field dependencies in order.</strong> Some fields are only visible after other fields are set. For example, <em>Location Code</em> requires <em>Ship-to</em> option set to &ldquo;Location&rdquo; first.</li>
+          <li><strong>Use multi-user workflows for approval scenarios.</strong> Define roles (Creator, Approver) with separate credentials. Each step in the workflow can run under a different user.</li>
+          <li><strong>Test the BASE script first.</strong> Always validate the BASE recording works end-to-end before generating variants or building a workflow around it.</li>
+        </ul>
+      </div>
+
+      <!-- Variant Generation -->
+      <div class="card tips-card">
+        <h2><span class="tips-icon">⊞</span> Variant Generation</h2>
+        <ul class="tips-list">
+          <li><strong>Validate data files against BC.</strong> Items, Locations, and Vendors listed in your data files must exist in the target BC company. Missing data = silent failures.</li>
+          <li><strong>Use consistent naming.</strong> Data files should use the expected names (<code>Items</code>, <code>Locations</code>, <code>var-vendors</code>) &mdash; one value per line, no headers.</li>
+          <li><strong>Generate a single variant first.</strong> Verify substitution works correctly before generating the full combinatorial suite.</li>
+          <li><strong>Only substitute variable fields.</strong> The generator should replace specific field values, not modify the YAML structure. Any structural changes should go back into the BASE script.</li>
+        </ul>
+      </div>
+
+      <!-- Running & Debugging -->
+      <div class="card tips-card">
+        <h2><span class="tips-icon">▶</span> Running &amp; Debugging</h2>
+        <ul class="tips-list">
+          <li><strong>Use <code>-Headed</code> mode for debugging.</strong> Add the <code>-Headed</code> flag to see the browser during playback. This makes it easy to spot where scripts fail.</li>
+          <li><strong>Check permissions.</strong> The BC user needs <code>PAGESCRIPTING - PLAY</code> permission set (and <code>PAGESCRIPTING - REC</code> for recording).</li>
+          <li><strong>Disable MFA for test accounts.</strong> The bc-replay player uses AAD authentication with username/password only &mdash; it does not support multi-factor authentication.</li>
+          <li><strong>Never store passwords in files.</strong> Use environment variables or the Windows Credential Manager. Prompt for passwords securely with <code>Read-Host -AsSecureString</code>.</li>
+          <li><strong>Review the Playwright report.</strong> After a run, use <code>npx playwright show-report</code> to see detailed results, screenshots, and timing for each step.</li>
+        </ul>
+      </div>
+
+      <!-- Pipeline Integration -->
+      <div class="card tips-card">
+        <h2><span class="tips-icon">🔄</span> Pipeline &amp; CI/CD Integration</h2>
+        <ul class="tips-list">
+          <li><strong>Prerequisites:</strong> Node.js 16.14+ and PowerShell 7+ are required on the build agent.</li>
+          <li><strong>Install bc-replay:</strong> Run <code>npm i @microsoft/bc-replay --save</code> in your pipeline&rsquo;s working directory.</li>
+          <li><strong>Pass credentials via environment variables.</strong> Set <code>BC_USERNAME</code> and <code>BC_PASSWORD</code> as secret pipeline variables, then reference them with <code>-UserNameKey</code> and <code>-PasswordKey</code>.</li>
+          <li><strong>Run all scripts with a glob:</strong> Use <code>npx replay .\recordings\*.yml</code> to execute every script in a folder.</li>
+          <li><strong>Publish test results.</strong> The result folder contains JUnit XML &mdash; publish it to your CI system for trend tracking.</li>
+        </ul>
+      </div>
+
+      <!-- Common Pitfalls -->
+      <div class="card tips-card">
+        <h2><span class="tips-icon">⚠</span> Common Pitfalls</h2>
+        <div class="tips-table-wrapper">
+          <table class="tips-table">
+            <thead>
+              <tr><th>Issue</th><th>Cause</th><th>Fix</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Field not visible</td><td>A dependency field wasn&rsquo;t set first</td><td>Set all dependency fields before the target field</td></tr>
+              <tr><td>Script fails on re-run</td><td>Runtime references changed</td><td>Use a consistent BASE recording</td></tr>
+              <tr><td>Variant values not substituted</td><td>Data file name doesn&rsquo;t match expected pattern</td><td>Use names: <code>Items</code>, <code>Locations</code>, <code>var-vendors</code></td></tr>
+              <tr><td>Test data missing in BC</td><td>Values don&rsquo;t exist in the target company</td><td>Verify all values exist before running</td></tr>
+              <tr><td>Confirmation dialog breaks script</td><td>Dialog appears inconsistently</td><td>Mark the page as optional in the recording</td></tr>
+              <tr><td>Script stops at login</td><td>MFA enabled on test account</td><td>Use a dedicated test account with MFA disabled</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Quick Reference -->
+      <div class="card tips-card">
+        <h2><span class="tips-icon">📖</span> Quick Reference Links</h2>
+        <div class="tips-links">
+          <a href="https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-page-scripting" target="_blank" rel="noopener" class="tips-link-card">
+            <span class="tips-link-title">Official Page Scripting Docs</span>
+            <span class="tips-link-desc">Microsoft Learn &mdash; complete guide to recording, playback, and YAML format</span>
+          </a>
+          <a href="https://www.npmjs.com/package/@microsoft/bc-replay" target="_blank" rel="noopener" class="tips-link-card">
+            <span class="tips-link-title">bc-replay on npm</span>
+            <span class="tips-link-desc">The standalone page script player for pipeline and CI/CD use</span>
+          </a>
+          <a href="https://learn.microsoft.com/en-us/power-platform/power-fx/overview" target="_blank" rel="noopener" class="tips-link-card">
+            <span class="tips-link-title">Power Fx Reference</span>
+            <span class="tips-link-desc">Expression language used in page script parameters and conditions</span>
+          </a>
+          <a href="https://playwright.dev/docs/intro" target="_blank" rel="noopener" class="tips-link-card">
+            <span class="tips-link-title">Playwright Documentation</span>
+            <span class="tips-link-desc">The test framework powering bc-replay &mdash; reports, tracing, and debugging</span>
+          </a>
+        </div>
+      </div>
+
     </section>
 
   </main>

@@ -39,6 +39,7 @@ function activateTab(tabId) {
   if (tabId === 'variants')     loadVariantProjects();
   if (tabId === 'run')          loadRunPage();
   if (tabId === 'results')      loadResults();
+  // Tips tab is static — no data to load
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
