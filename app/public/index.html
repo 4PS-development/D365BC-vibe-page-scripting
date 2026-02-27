@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BC Page Scripting</title>
+  <title>4PS Test Automation</title>
   <link rel="stylesheet" href="/css/app.css" />
 </head>
 <body>
@@ -11,7 +11,7 @@
   <nav id="sidebar">
     <div class="sidebar-logo">
       <span class="logo-mark">4PS</span>
-      <span class="logo-text">BC Page Scripting</span>
+      <span class="logo-text">Test Automation</span>
     </div>
     <ul id="nav-list">
       <li class="nav-item active" data-tab="setup">
@@ -88,7 +88,7 @@
       <!-- Add / Edit modal -->
       <div id="modal-env" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-env-title">
         <div class="modal-backdrop"></div>
-        <div class="modal-box">
+        <div class="modal-box modal-box-lg">
           <h2 id="modal-env-title">Add Environment</h2>
           <label>Name <small>(e.g. SandboxEMEA)</small>
             <input id="env-name" type="text" class="input" placeholder="SandboxEMEA" />
@@ -101,6 +101,31 @@
             <h3>Roles / Users</h3>
             <div id="env-roles-list"></div>
             <button class="btn btn-secondary mt-sm" id="btn-add-role">+ Add Role</button>
+          </div>
+
+          <div id="env-appreg-container">
+            <h3>App Registration <small>(Entra ID — for BC API access)</small></h3>
+            <div class="form-grid">
+              <label>Client ID
+                <input id="env-appreg-clientid" type="text" class="input" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+              </label>
+              <label>Client Secret
+                <input id="env-appreg-secret" type="password" class="input" placeholder="••••••••" autocomplete="new-password" />
+              </label>
+            </div>
+            <div class="form-grid mt-sm">
+              <label>Tenant ID <small>(auto-extracted from URL)</small>
+                <input id="env-appreg-tenantid" type="text" class="input" placeholder="auto-detected from BC URL" />
+              </label>
+              <label>Company
+                <div class="input-with-btn">
+                  <select id="env-appreg-company" class="input">
+                    <option value="">— fetch companies first —</option>
+                  </select>
+                  <button class="btn btn-secondary btn-sm" id="btn-fetch-companies" type="button">Fetch</button>
+                </div>
+              </label>
+            </div>
           </div>
 
           <div class="modal-actions">
@@ -207,7 +232,10 @@
     <section id="tab-results" class="tab">
       <div class="page-header">
         <h1>Results</h1>
-        <button class="btn btn-secondary" id="btn-refresh-results">Refresh</button>
+        <div class="header-actions">
+          <button class="btn btn-danger btn-sm" id="btn-reset-results">Reset All Results</button>
+          <button class="btn btn-secondary" id="btn-refresh-results">Refresh</button>
+        </div>
       </div>
 
       <!-- Run list (left) + detail panel (right) -->

@@ -151,14 +151,21 @@ function renderEnvList() {
     const chips = (env.roles || []).map(r =>
       `<span class="role-chip has-cred">${r.role}: ${r.username || '—'}</span>`
     ).join('');
+    const appRegBadge = env.hasAppRegistration
+      ? '<span class="role-chip has-cred" style="border-color:var(--primary);color:var(--primary)">App Reg</span>'
+      : '';
     card.innerHTML = `
       <div class="env-card-header">
         <span class="env-card-name">${esc(env.name)}</span>
-        <button class="btn btn-danger btn-sm" data-del="${esc(env.name)}">Delete</button>
+        <div class="env-card-actions">
+          <button class="btn btn-secondary btn-sm" data-edit="${esc(env.name)}">Edit</button>
+          <button class="btn btn-danger btn-sm" data-del="${esc(env.name)}">Delete</button>
+        </div>
       </div>
       <div class="env-card-url">${esc(env.url)}</div>
-      <div class="env-card-roles">${chips || '<span class="role-chip">No roles</span>'}</div>`;
+      <div class="env-card-roles">${chips}${appRegBadge}</div>`;
     card.querySelector('[data-del]').addEventListener('click', () => deleteEnv(env.name));
+    card.querySelector('[data-edit]').addEventListener('click', () => openEnvModal(env.name));
     grid.appendChild(card);
   });
 }
@@ -171,6 +178,7 @@ async function deleteEnv(name) {
 
 // Add / Edit environment modal
 let modalRoleCount = 0;
+let editingEnvName = null; // null = create mode, string = edit mode
 
 document.getElementById('btn-new-env').addEventListener('click', () => openEnvModal());
 document.getElementById('btn-seed-env').addEventListener('click', () => openSeedModal());
@@ -179,14 +187,106 @@ document.querySelector('#modal-env .modal-backdrop').addEventListener('click', c
 document.getElementById('btn-add-role').addEventListener('click', addRoleRow);
 document.getElementById('btn-save-env').addEventListener('click', saveEnv);
 
-function openEnvModal() {
+// Auto-extract tenant ID from BC URL
+document.getElementById('env-url').addEventListener('input', function () {
+  const m = this.value.match(/bc\.dynamics\.com\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  if (m) {
+    document.getElementById('env-appreg-tenantid').value = m[1];
+  }
+});
+
+// Fetch companies from BC API
+document.getElementById('btn-fetch-companies').addEventListener('click', async () => {
+  const clientId     = document.getElementById('env-appreg-clientid').value.trim();
+  const clientSecret = document.getElementById('env-appreg-secret').value.trim();
+  const tenantId     = document.getElementById('env-appreg-tenantid').value.trim();
+  const bcUrl        = document.getElementById('env-url').value.trim();
+
+  if (!clientId || !clientSecret || !tenantId) {
+    alert('Client ID, Client Secret, and Tenant ID are required to fetch companies.');
+    return;
+  }
+
+  const btn = document.getElementById('btn-fetch-companies');
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const data = await POST('/bc/companies', { clientId, clientSecret, tenantId, bcUrl });
+    const sel = document.getElementById('env-appreg-company');
+    sel.innerHTML = '<option value="">-- select company --</option>';
+    (data.companies || []).forEach(c => {
+      const opt = new Option(`${c.displayName || c.name}`, c.id);
+      opt.dataset.companyName = c.displayName || c.name;
+      sel.appendChild(opt);
+    });
+    // Auto-select if only one company
+    if (data.companies?.length === 1) sel.value = data.companies[0].id;
+  } catch (e) {
+    alert('Failed to fetch companies: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Fetch';
+  }
+});
+
+async function openEnvModal(existingName) {
   modalRoleCount = 0;
+  editingEnvName = existingName || null;
   document.getElementById('env-name').value = '';
   document.getElementById('env-url').value = '';
   document.getElementById('env-roles-list').innerHTML = '';
-  addRoleRow();
+  document.getElementById('env-appreg-clientid').value = '';
+  document.getElementById('env-appreg-secret').value = '';
+  document.getElementById('env-appreg-tenantid').value = '';
+  document.getElementById('env-appreg-company').innerHTML = '<option value="">-- fetch companies first --</option>';
+
+  if (existingName) {
+    document.getElementById('modal-env-title').textContent = 'Edit Environment';
+    document.getElementById('env-name').value = existingName;
+    document.getElementById('env-name').readOnly = true;
+
+    // Load existing data from server
+    try {
+      const env = await GET(`/environments/${encodeURIComponent(existingName)}`);
+      document.getElementById('env-url').value = env.url || '';
+
+      // Pre-fill roles
+      for (const r of (env.roles || [])) {
+        addRoleRow(r.role, r.username, r.hasPassword, r.hasMfa);
+      }
+
+      // Pre-fill app registration
+      if (env.appRegistration) {
+        document.getElementById('env-appreg-clientid').value = env.appRegistration.clientId || '';
+        document.getElementById('env-appreg-tenantid').value = env.appRegistration.tenantId || '';
+        if (env.appRegistration.hasSecret) {
+          document.getElementById('env-appreg-secret').placeholder = '(unchanged — enter new value to update)';
+        }
+        if (env.appRegistration.companyId) {
+          const sel = document.getElementById('env-appreg-company');
+          sel.innerHTML = `<option value="${esc(env.appRegistration.companyId)}">${esc(env.appRegistration.companyName || env.appRegistration.companyId)}</option>`;
+          sel.value = env.appRegistration.companyId;
+        }
+      }
+
+      // Auto-extract tenant from URL
+      const m = (env.url || '').match(/bc\.dynamics\.com\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+      if (m && !document.getElementById('env-appreg-tenantid').value) {
+        document.getElementById('env-appreg-tenantid').value = m[1];
+      }
+    } catch (e) {
+      // Could not load — just open empty modal
+    }
+
+    if (!document.querySelectorAll('.role-row').length) addRoleRow();
+  } else {
+    document.getElementById('modal-env-title').textContent = 'Add Environment';
+    document.getElementById('env-name').readOnly = false;
+    document.getElementById('env-appreg-secret').placeholder = '••••••••';
+    addRoleRow();
+  }
+
   document.getElementById('modal-env').classList.remove('hidden');
-  document.getElementById('env-name').focus();
+  if (!existingName) document.getElementById('env-name').focus();
+  else document.getElementById('env-url').focus();
 }
 function closeEnvModal() { document.getElementById('modal-env').classList.add('hidden'); }
 
@@ -258,7 +358,7 @@ document.getElementById('btn-confirm-seed').addEventListener('click', async () =
   await loadEnvironments();
 });
 
-function addRoleRow() {
+function addRoleRow(roleName, username, hasPassword, hasMfa) {
   const id = ++modalRoleCount;
   const row = document.createElement('div');
   row.className = 'role-row';
@@ -270,16 +370,16 @@ function addRoleRow() {
     </div>
     <div class="role-row-grid">
       <label>Role name
-        <input type="text" class="input" data-field="role" placeholder="Purchaser" />
+        <input type="text" class="input" data-field="role" placeholder="Purchaser" value="${esc(roleName || '')}" />
       </label>
       <label>Username (email)
-        <input type="email" class="input" data-field="username" placeholder="user@contoso.com" />
+        <input type="email" class="input" data-field="username" placeholder="user@contoso.com" value="${esc(username || '')}" />
       </label>
       <label>Password
-        <input type="password" class="input" data-field="password" placeholder="••••••••" autocomplete="new-password" />
+        <input type="password" class="input" data-field="password" placeholder="${hasPassword ? '(unchanged — enter new value to update)' : '••••••••'}" autocomplete="new-password" />
       </label>
       <label>MFA seed <small>(optional)</small>
-        <input type="password" class="input" data-field="mfaSeed" placeholder="TOTP secret" autocomplete="off" />
+        <input type="password" class="input" data-field="mfaSeed" placeholder="${hasMfa ? '(unchanged)' : 'TOTP secret'}" autocomplete="off" />
       </label>
     </div>`;
   row.querySelector('[data-rm]').addEventListener('click', () => row.remove());
@@ -297,10 +397,21 @@ async function saveEnv() {
     roles.push({ role: g('role'), username: g('username'), password: g('password'), mfaSeed: g('mfaSeed') });
   });
 
+  // Gather app registration data
+  const companySel = document.getElementById('env-appreg-company');
+  const selectedOpt = companySel.selectedOptions[0];
+  const appRegistration = {
+    clientId:     document.getElementById('env-appreg-clientid').value.trim(),
+    clientSecret: document.getElementById('env-appreg-secret').value.trim(),
+    tenantId:     document.getElementById('env-appreg-tenantid').value.trim(),
+    companyId:    companySel.value || '',
+    companyName:  selectedOpt?.dataset.companyName || selectedOpt?.textContent?.trim() || '',
+  };
+
   const btn = document.getElementById('btn-save-env');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    await POST('/environments', { name, url, roles });
+    await POST('/environments', { name, url, roles, appRegistration });
     closeEnvModal();
     await loadEnvironments();
   } catch (e) {
@@ -431,7 +542,6 @@ document.getElementById('btn-run').addEventListener('click', async () => {
 
   document.getElementById('run-output').textContent = '';
   document.getElementById('run-output-card').style.display = '';
-  document.getElementById('btn-run-report').style.display = 'none';
 
   const btn = document.getElementById('btn-run');
   btn.disabled = true; btn.textContent = 'Running…';
@@ -526,6 +636,7 @@ async function showRunDetail(runId, cardEl) {
 
   // Build steps table rows
   let stepsRows = '';
+  let stepIdx = 0;
   for (const step of (data.steps || [])) {
     const status    = step.status || 'unknown';
     const reportBtn = step.reportUrl
@@ -536,15 +647,25 @@ async function showRunDetail(runId, cardEl) {
       ? `<button class="btn btn-secondary btn-sm" style="margin-left:6px" onclick="showStepScreenshots(${JSON.stringify(JSON.stringify(step.screenshots))})">&#128247; ${screenshotCount}</button>`
       : '';
 
+    const hasReportDir = !!step.report_dir;
+    const expandBtn = hasReportDir
+      ? `<button class="btn btn-secondary btn-sm step-expand-btn" data-step-idx="${stepIdx}" data-report-dir="${esc(step.report_dir)}">&#9660; Details</button>`
+      : '';
+
     const hasSubResults = step.sub_results?.length > 0;
     stepsRows += `
-      <tr>
+      <tr class="step-main-row" data-step-idx="${stepIdx}">
         <td style="white-space:nowrap;font-family:monospace;font-size:12px">${esc(step.id)}</td>
         <td><strong>${esc(step.name)}</strong></td>
         <td style="font-size:12px">${esc(step.user || '')}</td>
         <td><span class="step-badge ${esc(status)}">${esc(status)}</span></td>
         <td style="white-space:nowrap;font-size:12px">${step.duration_s != null ? step.duration_s + 's' : '—'}</td>
-        <td style="white-space:nowrap">${reportBtn}${screenshotBtn}</td>
+        <td style="white-space:nowrap">${expandBtn} ${reportBtn}${screenshotBtn}</td>
+      </tr>
+      <tr class="step-detail-row hidden" id="step-detail-${stepIdx}">
+        <td colspan="6" class="step-detail-cell">
+          <div class="step-detail-loading">Loading step details...</div>
+        </td>
       </tr>`;
 
     if (hasSubResults) {
@@ -561,6 +682,7 @@ async function showRunDetail(runId, cardEl) {
           </tr>`;
       }
     }
+    stepIdx++;
   }
 
   content.innerHTML = `
@@ -568,6 +690,7 @@ async function showRunDetail(runId, cardEl) {
       <div class="rd-title-row">
         <span class="rd-badge ${esc(overall)}">${esc(overall)}</span>
         <h2>${esc(data.workflow_name || runId)}</h2>
+        <a href="/api/results/pdf?id=${encodeURIComponent(runId)}" class="btn btn-secondary btn-sm" style="margin-left:auto" download>Download PDF</a>
       </div>
       <div class="rd-meta">
         ${start ? `<span>Started: ${start.toLocaleString()}</span>` : ''}
@@ -591,6 +714,74 @@ async function showRunDetail(runId, cardEl) {
         <tbody>${stepsRows || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">No steps</td></tr>'}</tbody>
       </table>
     </div>`;
+
+  // Wire up expand buttons
+  content.querySelectorAll('.step-expand-btn').forEach(btn => {
+    btn.addEventListener('click', () => toggleStepDetail(btn));
+  });
+}
+
+// Step detail expand/collapse
+const stepDetailCache = {};
+async function toggleStepDetail(btn) {
+  const idx = btn.dataset.stepIdx;
+  const detailRow = document.getElementById(`step-detail-${idx}`);
+  if (!detailRow) return;
+
+  const isHidden = detailRow.classList.contains('hidden');
+  if (!isHidden) {
+    detailRow.classList.add('hidden');
+    btn.innerHTML = '&#9660; Details';
+    return;
+  }
+
+  detailRow.classList.remove('hidden');
+  btn.innerHTML = '&#9650; Details';
+
+  const reportDir = btn.dataset.reportDir;
+  const cacheKey = reportDir;
+
+  if (stepDetailCache[cacheKey]) {
+    renderStepDetail(detailRow, stepDetailCache[cacheKey]);
+    return;
+  }
+
+  // Fetch from server
+  try {
+    const data = await GET(`/results/step-data?dir=${encodeURIComponent(reportDir)}`);
+    stepDetailCache[cacheKey] = data;
+    renderStepDetail(detailRow, data);
+  } catch (e) {
+    detailRow.querySelector('.step-detail-cell').innerHTML =
+      `<div style="padding:12px;color:var(--error);font-size:12px">Could not load details: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderStepDetail(detailRow, data) {
+  if (!data.steps?.length) {
+    detailRow.querySelector('.step-detail-cell').innerHTML =
+      '<div style="padding:12px;color:var(--text-muted);font-size:12px">No detailed action data available.</div>';
+    return;
+  }
+
+  let html = '<div class="step-actions-list">';
+  html += `<div class="step-actions-header">${esc(data.name || 'Test')} &mdash; ${data.totalSteps} actions</div>`;
+  html += '<table class="step-actions-table">';
+  html += '<thead><tr><th>#</th><th>Type</th><th>Description</th><th>Duration</th></tr></thead><tbody>';
+
+  for (const s of data.steps) {
+    const durText = s.duration_ms != null ? `${s.duration_ms}ms` : '';
+    const typeClass = s.type === 'input' ? 'type-input' : s.type === 'invoke' ? 'type-invoke' : s.type === 'navigate' ? 'type-navigate' : '';
+    html += `<tr>
+      <td style="font-size:11px;color:var(--text-muted)">${s.index}</td>
+      <td><span class="action-type ${typeClass}">${esc(s.type)}</span></td>
+      <td style="font-size:12px">${esc(s.description)}${s.value ? ` = <strong>${esc(s.value)}</strong>` : ''}</td>
+      <td style="font-size:11px;white-space:nowrap;color:var(--text-muted)">${durText}</td>
+    </tr>`;
+  }
+
+  html += '</tbody></table></div>';
+  detailRow.querySelector('.step-detail-cell').innerHTML = html;
 }
 
 function showStepScreenshots(jsonStr) {
@@ -627,6 +818,19 @@ document.getElementById('btn-refresh-results').addEventListener('click', () => {
   document.getElementById('results-detail-content').style.display = 'none';
   document.getElementById('results-detail-placeholder').style.display = '';
   loadResults();
+});
+
+document.getElementById('btn-reset-results').addEventListener('click', async () => {
+  if (!confirm('Delete ALL test results? This cannot be undone.')) return;
+  try {
+    await DEL('/results');
+    activeRunId = null;
+    document.getElementById('results-detail-content').style.display = 'none';
+    document.getElementById('results-detail-placeholder').style.display = '';
+    loadResults();
+  } catch (e) {
+    alert('Failed to reset results: ' + e.message);
+  }
 });
 
 // ── Utils ─────────────────────────────────────────────────────────────────────

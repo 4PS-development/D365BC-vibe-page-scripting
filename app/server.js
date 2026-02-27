@@ -7,6 +7,8 @@ const chokidar  = require('chokidar');
 const path      = require('path');
 const fs        = require('fs');
 const { spawn, exec } = require('child_process');
+const yaml      = require('js-yaml');
+const PDFDocument = require('pdfkit');
 
 // ── Keytar (Windows Credential Manager — graceful fallback) ──────────────────
 let keytar = null;
@@ -148,9 +150,46 @@ app.post('/api/setup/install', (req, res) => {
 
 app.get('/api/environments', (_req, res) => res.json(readEnvs()));
 
+// Get single environment with credential values (for edit modal)
+app.get('/api/environments/:name', async (req, res) => {
+  try {
+    const env = readEnvs().find(e => e.name === req.params.name);
+    if (!env) return res.status(404).json({ error: 'Not found' });
+
+    const roles = [];
+    for (const r of (env.roles || [])) {
+      const username = await readCred(`${env.name}:${r.role}:username`);
+      const password = await readCred(`${env.name}:${r.role}:password`);
+      const mfaSeed  = await readCred(`${env.name}:${r.role}:mfa`);
+      roles.push({ role: r.role, username: username || '', hasPassword: !!password, hasMfa: !!mfaSeed });
+    }
+    // App registration creds
+    const appRegClientId     = await readCred(`${env.name}:app-reg:client_id`);
+    const appRegClientSecret = await readCred(`${env.name}:app-reg:client_secret`);
+    const appRegTenantId     = await readCred(`${env.name}:app-reg:tenant_id`);
+    const appRegCompanyId    = await readCred(`${env.name}:app-reg:company_id`);
+    const appRegCompanyName  = await readCred(`${env.name}:app-reg:company_name`);
+
+    res.json({
+      name: env.name,
+      url: env.url,
+      roles,
+      appRegistration: {
+        clientId:     appRegClientId || '',
+        hasSecret:    !!appRegClientSecret,
+        tenantId:     appRegTenantId || '',
+        companyId:    appRegCompanyId || '',
+        companyName:  appRegCompanyName || '',
+      },
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/environments', async (req, res) => {
   try {
-    const { name, url, roles = [] } = req.body;
+    const { name, url, roles = [], appRegistration } = req.body;
     if (!name || !url) return res.status(400).json({ error: 'name and url are required' });
 
     for (const r of roles) {
@@ -159,11 +198,21 @@ app.post('/api/environments', async (req, res) => {
       if (r.mfaSeed)   await saveCred(`${name}:${r.role}:mfa`,      r.mfaSeed);
     }
 
+    // Save app registration credentials
+    if (appRegistration) {
+      if (appRegistration.clientId)     await saveCred(`${name}:app-reg:client_id`,     appRegistration.clientId);
+      if (appRegistration.clientSecret) await saveCred(`${name}:app-reg:client_secret`,  appRegistration.clientSecret);
+      if (appRegistration.tenantId)     await saveCred(`${name}:app-reg:tenant_id`,      appRegistration.tenantId);
+      if (appRegistration.companyId)    await saveCred(`${name}:app-reg:company_id`,     appRegistration.companyId);
+      if (appRegistration.companyName)  await saveCred(`${name}:app-reg:company_name`,   appRegistration.companyName);
+    }
+
     const envs = readEnvs().filter(e => e.name !== name);
     envs.push({
       name,
       url,
       roles: roles.map(r => ({ role: r.role, username: r.username, hasMfa: !!r.mfaSeed })),
+      hasAppRegistration: !!(appRegistration?.clientId),
     });
     writeEnvs(envs);
     res.json({ ok: true });
@@ -182,9 +231,68 @@ app.delete('/api/environments/:name', async (req, res) => {
         await deleteCred(`${name}:${r.role}:username`);
         await deleteCred(`${name}:${r.role}:mfa`);
       }
+      // Clean up app registration creds
+      await deleteCred(`${name}:app-reg:client_id`);
+      await deleteCred(`${name}:app-reg:client_secret`);
+      await deleteCred(`${name}:app-reg:tenant_id`);
+      await deleteCred(`${name}:app-reg:company_id`);
+      await deleteCred(`${name}:app-reg:company_name`);
     }
     writeEnvs(readEnvs().filter(e => e.name !== name));
     res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ROUTES — BC API proxy (fetch companies for app registration setup)
+// ══════════════════════════════════════════════════════════════════════════════
+
+app.post('/api/bc/companies', async (req, res) => {
+  const { clientId, clientSecret, tenantId, bcUrl } = req.body;
+  if (!clientId || !clientSecret || !tenantId) {
+    return res.status(400).json({ error: 'clientId, clientSecret, and tenantId are required' });
+  }
+
+  try {
+    // Get OAuth token via client_credentials
+    const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+    const tokenBody = new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: clientId,
+      client_secret: clientSecret,
+      scope: 'https://api.businesscentral.dynamics.com/.default',
+    });
+    const tokenRes = await fetch(tokenUrl, { method: 'POST', body: tokenBody });
+    const tokenData = await tokenRes.json();
+    if (!tokenRes.ok) {
+      return res.status(401).json({ error: tokenData.error_description || 'OAuth token request failed' });
+    }
+
+    // Extract environment name from BC URL
+    let envName = 'Production';
+    if (bcUrl) {
+      const match = bcUrl.match(/bc\.dynamics\.com\/[0-9a-f-]+\/(\w+)/i);
+      if (match) envName = match[1];
+    }
+
+    // Fetch companies list from BC API
+    const companiesUrl = `https://api.businesscentral.dynamics.com/v2.0/${tenantId}/${envName}/api/v2.0/companies`;
+    const companiesRes = await fetch(companiesUrl, {
+      headers: { 'Authorization': `Bearer ${tokenData.access_token}` },
+    });
+    const companiesData = await companiesRes.json();
+    if (!companiesRes.ok) {
+      return res.status(companiesRes.status).json({ error: companiesData?.error?.message || 'Failed to fetch companies' });
+    }
+
+    const companies = (companiesData.value || []).map(c => ({
+      id: c.id,
+      name: c.name,
+      displayName: c.displayName,
+    }));
+    res.json({ companies, environmentName: envName });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -430,6 +538,26 @@ function findSummaries(dir, base, results = []) {
   return results;
 }
 
+// Delete all result directories (reset)
+app.delete('/api/results', (_req, res) => {
+  const psBase = path.join(ROOT, 'page-scripting');
+  let deleted = 0;
+  try {
+    const entries = fs.readdirSync(psBase, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const resultsDir = path.join(psBase, entry.name, 'results');
+      if (fs.existsSync(resultsDir)) {
+        fs.rmSync(resultsDir, { recursive: true, force: true });
+        deleted++;
+      }
+    }
+    res.json({ ok: true, deleted });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // List all available run summaries
 app.get('/api/results', (_req, res) => {
   const psBase    = path.join(ROOT, 'page-scripting');
@@ -479,6 +607,163 @@ app.get('/api/results/detail', (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ROUTES — Step detail data (Playwright report YAMLs)
+// ══════════════════════════════════════════════════════════════════════════════
+
+app.get('/api/results/step-data', (req, res) => {
+  const reportDir = req.query.dir;
+  if (!reportDir) return res.status(400).json({ error: 'dir query param required' });
+
+  const dataDir = path.join(reportDir, 'playwright-report', 'data');
+  if (!fs.existsSync(dataDir)) return res.status(404).json({ error: 'No playwright-report/data found' });
+
+  try {
+    const ymlFiles = fs.readdirSync(dataDir).filter(f => /\.ya?ml$/i.test(f));
+    let testDef = null;
+    let execLog = null;
+
+    for (const f of ymlFiles) {
+      const content = yaml.load(fs.readFileSync(path.join(dataDir, f), 'utf8'));
+      if (content && content.name && content.steps) {
+        testDef = content; // test definition (has name + steps without log)
+      } else if (content && content.steps && content.steps[0]?.log) {
+        execLog = content; // execution log (has steps with log.start/duration)
+      }
+    }
+
+    // Merge: combine test def descriptions with execution timing
+    const steps = [];
+    const defSteps = testDef?.steps || [];
+    const logSteps = execLog?.steps || [];
+    const maxLen = Math.max(defSteps.length, logSteps.length);
+
+    for (let i = 0; i < maxLen; i++) {
+      const ds = defSteps[i] || {};
+      const ls = logSteps[i] || {};
+      // Clean up description HTML tags
+      const desc = (ls.description || ds.description || '').replace(/<[^>]+>/g, '');
+      steps.push({
+        index: i + 1,
+        type:        ls.type || ds.type || '',
+        description: desc,
+        target:      ds.target || ls.target || null,
+        value:       ds.value || ls.value || null,
+        start:       ls.log?.start || null,
+        duration_ms: ls.log?.duration ?? null,
+      });
+    }
+
+    res.json({
+      name: testDef?.name || '',
+      telemetryId: testDef?.telemetryId || execLog?.telemetryId || '',
+      totalSteps: steps.length,
+      steps,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ROUTES — PDF Report
+// ══════════════════════════════════════════════════════════════════════════════
+
+app.get('/api/results/pdf', (req, res) => {
+  const relDir = req.query.id;
+  if (!relDir) return res.status(400).json({ error: 'id query param required' });
+  const summaryPath = path.join(ROOT, 'page-scripting', relDir, 'workflow-summary.json');
+  if (!fs.existsSync(summaryPath)) return res.status(404).json({ error: 'Not found' });
+
+  try {
+    const data = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+    const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="report-${relDir.replace(/\//g, '-')}.pdf"`);
+    doc.pipe(res);
+
+    // Title
+    doc.font('Helvetica-Bold').fontSize(20).text('4PS Test Automation Report', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.font('Helvetica').fontSize(12).fillColor('#666').text(data.workflow_name || relDir, { align: 'center' });
+    doc.moveDown(1.5);
+
+    // Summary box
+    doc.fillColor('#000').font('Helvetica-Bold').fontSize(14).text('Summary');
+    doc.moveDown(0.3);
+    const overall = data.overall || 'UNKNOWN';
+    doc.font('Helvetica').fontSize(11);
+    doc.text(`Result: ${overall}`, { continued: false });
+    doc.text(`Start: ${data.start_time ? new Date(data.start_time).toLocaleString() : 'N/A'}`);
+    doc.text(`End: ${data.end_time ? new Date(data.end_time).toLocaleString() : 'N/A'}`);
+    doc.text(`Duration: ${data.duration_s ?? 'N/A'}s`);
+    doc.text(`Total Steps: ${data.total_steps ?? 0}  |  Passed: ${data.passed ?? 0}  |  Failed: ${data.failed ?? 0}  |  Skipped: ${data.skipped ?? 0}`);
+    doc.moveDown(1.5);
+
+    // Steps table
+    if (Array.isArray(data.steps) && data.steps.length) {
+      doc.font('Helvetica-Bold').fontSize(14).text('Steps');
+      doc.moveDown(0.4);
+
+      // Table header
+      const colX = [50, 130, 310, 395, 470];
+      const y = doc.y;
+      doc.rect(50, y, 500, 18).fill('#2a2a2a');
+      doc.fillColor('#fff').font('Helvetica-Bold').fontSize(9);
+      doc.text('STEP ID', colX[0] + 4, y + 4, { width: 76 });
+      doc.text('NAME', colX[1] + 4, y + 4, { width: 176 });
+      doc.text('USER', colX[2] + 4, y + 4, { width: 80 });
+      doc.text('STATUS', colX[3] + 4, y + 4, { width: 70 });
+      doc.text('DURATION', colX[4] + 4, y + 4, { width: 70 });
+      doc.y = y + 20;
+      doc.fillColor('#000');
+
+      for (const step of data.steps) {
+        if (doc.y > 750) { doc.addPage(); doc.y = 50; }
+        const sy = doc.y;
+        const status = step.status || 'unknown';
+        doc.font('Courier').fontSize(9).text(step.id || '', colX[0] + 4, sy + 3, { width: 76 });
+        doc.font('Helvetica').fontSize(9).text(step.name || '', colX[1] + 4, sy + 3, { width: 176 });
+        doc.text(step.user || '', colX[2] + 4, sy + 3, { width: 80 });
+        // Status with color
+        const statusColor = status === 'passed' ? '#1a7a3f' : status === 'failed' ? '#c0392b' : '#666';
+        doc.fillColor(statusColor).text(status.toUpperCase(), colX[3] + 4, sy + 3, { width: 70 });
+        doc.fillColor('#000').text(step.duration_s != null ? step.duration_s + 's' : '-', colX[4] + 4, sy + 3, { width: 70 });
+        doc.y = sy + 18;
+
+        // Draw line
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).strokeColor('#e0e0e0').stroke();
+        doc.y += 2;
+
+        // Sub-results
+        if (step.sub_results?.length) {
+          for (const sub of step.sub_results) {
+            if (doc.y > 750) { doc.addPage(); doc.y = 50; }
+            const ssy = doc.y;
+            const subStatus = sub.status || 'unknown';
+            doc.font('Helvetica').fontSize(8).fillColor('#666');
+            doc.text('  ' + (sub.label || sub.script || ''), colX[1] + 14, ssy + 2, { width: 160 });
+            const sc = subStatus === 'passed' ? '#1a7a3f' : subStatus === 'failed' ? '#c0392b' : '#666';
+            doc.fillColor(sc).text(subStatus.toUpperCase(), colX[3] + 4, ssy + 2, { width: 70 });
+            doc.fillColor('#000').text(sub.duration_s != null ? sub.duration_s + 's' : '-', colX[4] + 4, ssy + 2, { width: 70 });
+            doc.y = ssy + 14;
+          }
+        }
+      }
+    }
+
+    // Footer
+    doc.moveDown(2);
+    doc.font('Helvetica').fontSize(8).fillColor('#999')
+      .text(`Generated by 4PS Test Automation on ${new Date().toLocaleString()}`, 50, doc.y, { align: 'center', width: 500 });
+
+    doc.end();
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
 // START
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -486,7 +771,7 @@ const PORT = process.env.PORT || 3333;
 server.listen(PORT, '127.0.0.1', () => {
   const url = `http://localhost:${PORT}`;
   console.log('');
-  console.log('  BC Page Scripting App');
+  console.log('  4PS Test Automation');
   console.log(`  Running at: ${url}`);
   console.log('');
   // Open in default browser (Windows)

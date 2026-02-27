@@ -1,7 +1,7 @@
 {
   "name": "bc-page-scripting-app",
   "version": "1.0.0",
-  "description": "BC Page Scripting — Local web application for customers and functional consultants",
+  "description": "4PS Test Automation — Local web application for customers and functional consultants",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -9,7 +9,9 @@
   "dependencies": {
     "chokidar": "^3.6.0",
     "express": "^4.18.2",
+    "js-yaml": "^4.1.0",
     "keytar": "^7.9.0",
+    "pdfkit": "^0.15.0",
     "ws": "^8.16.0"
   },
   "engines": {
