@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BC Page Scripting</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <!-- ── Sidebar ────────────────────────────────────────────────────────── -->
+  <nav id="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-mark">4PS</span>
+      <span class="logo-text">BC Page Scripting</span>
+    </div>
+    <ul id="nav-list">
+      <li class="nav-item active" data-tab="setup">
+        <span class="nav-icon">⚙</span><span class="nav-label">Setup</span>
+      </li>
+      <li class="nav-item" data-tab="environments">
+        <span class="nav-icon">🔑</span><span class="nav-label">Environments</span>
+      </li>
+      <li class="nav-item" data-tab="workflow">
+        <span class="nav-icon">⬡</span><span class="nav-label">Workflow Designer</span>
+      </li>
+      <li class="nav-item" data-tab="variants">
+        <span class="nav-icon">⊞</span><span class="nav-label">Variant Generator</span>
+      </li>
+      <li class="nav-item" data-tab="run">
+        <span class="nav-icon">▶</span><span class="nav-label">Run</span>
+      </li>
+      <li class="nav-item" data-tab="results">
+        <span class="nav-icon">📊</span><span class="nav-label">Results</span>
+      </li>
+    </ul>
+    <div class="sidebar-footer">
+      <span id="ws-status" class="status-dot disconnected" title="Server connection"></span>
+      <span class="sidebar-version">v1.0</span>
+    </div>
+  </nav>
+
+  <!-- ── Main content ───────────────────────────────────────────────────── -->
+  <main id="main">
+
+    <!-- ── SETUP ── -->
+    <section id="tab-setup" class="tab active">
+      <div class="page-header"><h1>Setup</h1></div>
+      <div class="card" id="setup-status-card">
+        <h2>System Check</h2>
+        <div id="setup-checks" class="check-list">
+          <div class="check-item loading">Checking…</div>
+        </div>
+        <div class="actions mt-md" id="setup-actions" style="display:none">
+          <button id="btn-install-bcreplay" class="btn btn-primary">Install bc-replay dependencies</button>
+        </div>
+      </div>
+      <div class="card mt-md" id="setup-output-card" style="display:none">
+        <h2>Output</h2>
+        <pre id="setup-output" class="output-pane"></pre>
+      </div>
+    </section>
+
+    <!-- ── ENVIRONMENTS ── -->
+    <section id="tab-environments" class="tab">
+      <div class="page-header">
+        <h1>Environments &amp; Credentials</h1>
+        <div class="header-actions">
+          <button class="btn btn-secondary" id="btn-seed-env">&#8659; Seed from project files</button>
+          <button class="btn btn-primary" id="btn-new-env">+ Add Environment</button>
+        </div>
+      </div>
+      <div id="env-list" class="card-grid"></div>
+
+      <!-- Seed modal -->
+      <div id="modal-seed" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-seed-title">
+        <div class="modal-backdrop"></div>
+        <div class="modal-box">
+          <h2 id="modal-seed-title">Seed from project files</h2>
+          <p style="font-size:13px;color:var(--text-muted)">These projects have a <code>users.json</code> and <code>workflow.json</code>. Credentials will be saved to Windows Credential Manager — passwords are never stored in plain text.</p>
+          <div id="modal-seed-body" style="margin-top:12px"></div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" id="btn-cancel-seed">Cancel</button>
+            <button class="btn btn-primary" id="btn-confirm-seed">Seed</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add / Edit modal -->
+      <div id="modal-env" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-env-title">
+        <div class="modal-backdrop"></div>
+        <div class="modal-box">
+          <h2 id="modal-env-title">Add Environment</h2>
+          <label>Name <small>(e.g. SandboxEMEA)</small>
+            <input id="env-name" type="text" class="input" placeholder="SandboxEMEA" />
+          </label>
+          <label>BC URL
+            <input id="env-url" type="url" class="input" placeholder="https://businesscentral.dynamics.com/tenant/environment" />
+          </label>
+
+          <div id="env-roles-container">
+            <h3>Roles / Users</h3>
+            <div id="env-roles-list"></div>
+            <button class="btn btn-secondary mt-sm" id="btn-add-role">+ Add Role</button>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn btn-secondary" id="btn-cancel-env">Cancel</button>
+            <button class="btn btn-primary" id="btn-save-env">Save</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── WORKFLOW DESIGNER ── -->
+    <section id="tab-workflow" class="tab">
+      <div class="page-header">
+        <h1>Workflow Designer</h1>
+        <div class="header-actions">
+          <select id="wf-project-select" class="input input-sm">
+            <option value="">— select project —</option>
+          </select>
+          <button class="btn btn-secondary" id="btn-wf-load">Load</button>
+          <button class="btn btn-primary" id="btn-wf-save">Save to project</button>
+        </div>
+      </div>
+      <!-- The workflow builder iframe keeps it fully isolated -->
+      <div class="iframe-wrapper">
+        <iframe id="wf-iframe" src="/tools/workflow-builder/index.html" title="Workflow Designer"></iframe>
+      </div>
+    </section>
+
+    <!-- ── VARIANT GENERATOR ── -->
+    <section id="tab-variants" class="tab">
+      <div class="page-header"><h1>Variant Generator</h1></div>
+      <div class="card">
+        <div class="form-grid">
+          <label>Project
+            <select id="var-project" class="input">
+              <option value="">— select project —</option>
+            </select>
+          </label>
+          <label>BASE Script
+            <select id="var-base-script" class="input">
+              <option value="">— select base script —</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-grid mt-md">
+          <label>Items <small>(one per line)</small>
+            <textarea id="var-items" class="input textarea" rows="6" placeholder="1896-S&#10;1900-S&#10;1908-S"></textarea>
+          </label>
+          <label>Locations <small>(one per line)</small>
+            <textarea id="var-locations" class="input textarea" rows="6" placeholder="BLUE&#10;SILVER&#10;WHITE"></textarea>
+          </label>
+        </div>
+        <div class="actions mt-md">
+          <button class="btn btn-primary" id="btn-generate">Generate Variants</button>
+        </div>
+      </div>
+      <div class="card mt-md" id="var-output-card" style="display:none">
+        <h2>Output</h2>
+        <pre id="var-output" class="output-pane"></pre>
+      </div>
+    </section>
+
+    <!-- ── RUN ── -->
+    <section id="tab-run" class="tab">
+      <div class="page-header"><h1>Run Workflow</h1></div>
+      <div class="card">
+        <div class="form-grid">
+          <label>Project
+            <select id="run-project" class="input">
+              <option value="">— select project —</option>
+            </select>
+          </label>
+          <label>Environment
+            <select id="run-environment" class="input">
+              <option value="">— select environment —</option>
+            </select>
+          </label>
+        </div>
+        <div class="checkbox-group mt-md">
+          <label class="checkbox-label">
+            <input type="checkbox" id="run-headed" />
+            Show browser window (headed)
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="run-stop-on-failure" checked />
+            Stop on first failure
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="run-dry-run" />
+            Dry run (validate only, no BC changes)
+          </label>
+        </div>
+        <div class="actions mt-md">
+          <button class="btn btn-primary" id="btn-run">Run</button>
+        </div>
+      </div>
+      <div class="card mt-md" id="run-output-card" style="display:none">
+        <h2>Live Output</h2>
+        <pre id="run-output" class="output-pane"></pre>
+      </div>
+    </section>
+
+    <!-- ── RESULTS ── -->
+    <section id="tab-results" class="tab">
+      <div class="page-header">
+        <h1>Results</h1>
+        <button class="btn btn-secondary" id="btn-refresh-results">Refresh</button>
+      </div>
+
+      <!-- Run list (left) + detail panel (right) -->
+      <div id="results-layout" class="results-layout">
+        <!-- Sidebar list of runs -->
+        <div id="results-sidebar">
+          <div id="results-run-list"></div>
+          <div id="results-empty" class="empty-state" style="display:none">
+            <p>No results found. Run a workflow to see results here.</p>
+          </div>
+        </div>
+
+        <!-- Detail panel -->
+        <div id="results-detail" class="results-detail">
+          <div id="results-detail-placeholder" class="empty-state">
+            <p>Select a run from the list to view its report.</p>
+          </div>
+          <div id="results-detail-content" style="display:none">
+            <!-- Header -->
+            <div id="rd-header" class="rd-header">
+              <div class="rd-title-row">
+                <span id="rd-badge" class="rd-badge"></span>
+                <h2 id="rd-name"></h2>
+              </div>
+              <div id="rd-meta" class="rd-meta"></div>
+            </div>
+            <!-- Summary cards -->
+            <div id="rd-summary-cards" class="rd-summary-cards"></div>
+            <!-- Steps table -->
+            <div id="rd-steps"></div>
+            <!-- Screenshot lightbox -->
+            <div id="rd-screenshots" style="display:none">
+              <h3 style="margin:20px 0 10px">Screenshots</h3>
+              <div id="rd-screenshots-grid" class="screenshots-grid"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lightbox -->
+      <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true">
+        <div class="lightbox-backdrop"></div>
+        <div class="lightbox-box">
+          <button class="lightbox-close" id="lightbox-close">&#x2715;</button>
+          <img id="lightbox-img" src="" alt="Screenshot" />
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

@@ -10,6 +10,11 @@ BC.code-workspace
 **/.alpackages/
 **/.snapshots/
 
+# ===== BC PAGE SCRIPTING LOCAL APP =====
+# Node.js app dependencies and encrypted credential storage
+app/node_modules/
+app/.data/
+
 # ===== BC PAGE SCRIPTING SPECIFIC =====
 # Credentials and sensitive information
 **/users.json

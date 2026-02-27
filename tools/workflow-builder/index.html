@@ -1979,6 +1979,90 @@ renderCanvas();
 renderUsers();
 renderScripts();
 renderAppRegistrations();
+
+/* ════════════════════════════════════════════════════════════════════
+   PARENT APP BRIDGE (postMessage)
+   Allows the local Node.js app to request export / push imported
+   workflow data without replacing this file's standalone capability.
+   ════════════════════════════════════════════════════════════════════ */
+
+window.addEventListener('message', function(evt) {
+  const msg = evt.data;
+  if (!msg || typeof msg !== 'object') return;
+
+  // Parent app asks us to export the current workflow back to it
+  if (msg.type === 'request-export') {
+    const issues = validate();
+    if (issues.errors.length) {
+      toast('Fix ' + issues.errors.length + ' error(s) before saving', 'error');
+      evt.source.postMessage({ type: 'export-error', error: 'Validation failed: ' + issues.errors.join(', ') }, evt.origin || '*');
+      return;
+    }
+
+    const wf = {
+      $schema: './workflow.schema.json',
+      name: state.workflow.name,
+      description: state.workflow.description,
+      bc_url: state.workflow.bc_url,
+      steps: state.workflow.steps.map(function(s) {
+        const step = { id: s.id, name: s.name, user: s.user };
+        if (s.type === 'bc-api') {
+          step.type = 'bc-api';
+          step.method = s.method || 'GET';
+          step.endpoint = s.endpoint || '';
+          step.app_registration = s.app_registration || '';
+          if (s.body_template && Object.keys(s.body_template).length) step.body_template = s.body_template;
+          if (s.capture_response && Object.keys(s.capture_response).length) step.capture_response = s.capture_response;
+        } else {
+          if (s.scripts && s.scripts.length > 1) {
+            step.scripts = s.scripts;
+          } else {
+            step.script = s.script;
+          }
+          if (Object.keys(s.capture || {}).length) step.capture = s.capture;
+          if (Object.keys(s.inject || {}).length) step.inject = s.inject;
+        }
+        if (s.depends_on) step.depends_on = s.depends_on;
+        return step;
+      })
+    };
+
+    evt.source.postMessage({
+      type: 'export-workflow',
+      project: msg.project,
+      workflow: wf
+    }, evt.origin || '*');
+  }
+
+  // Parent app pushes a workflow.json for us to load into the designer
+  if (msg.type === 'load-workflow') {
+    const wf = msg.workflow;
+    if (!wf || !wf.steps) return;
+    state.workflow.name        = wf.name || '';
+    state.workflow.description = wf.description || '';
+    state.workflow.bc_url      = wf.bc_url || '';
+    state.workflow.steps       = (wf.steps || []).map(function(s, i) {
+      return Object.assign({
+        capture: {}, inject: {}, depends_on: '',
+        color: state.workflow.steps[i] ? state.workflow.steps[i].color : (ROLE_COLORS[i % ROLE_COLORS.length])
+      }, s);
+    });
+
+    // Rebuild users map from steps
+    const rolesSeen = {};
+    state.workflow.steps.forEach(function(s) {
+      if (s.user && s.user !== 'system' && !rolesSeen[s.user]) {
+        rolesSeen[s.user] = state.users[s.user] || { description: '' };
+      }
+    });
+    state.users = rolesSeen;
+
+    renderCanvas();
+    renderUsers();
+    renderScripts();
+    toast('Workflow loaded from project', 'success');
+  }
+});
 </script>
 </body>
 </html>
