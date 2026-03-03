@@ -414,6 +414,10 @@ textarea { resize: vertical; min-height: 50px; }
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 10v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-3M11 8l-3 3-3-3M8 11V2"/></svg>
       Export
     </button>
+    <button onclick="saveAsProject()" title="Save as a project folder on this machine (requires local app)">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 13H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h7l3 3v7a1 1 0 0 1-1 1z"/><path d="M10 13V9H6v4M5 3v3h5"/></svg>
+      Save as Project
+    </button>
     <button onclick="resetAll()" title="Start fresh" style="color:#ff6b6b;">Reset</button>
   </div>
 </header>
@@ -518,6 +522,48 @@ textarea { resize: vertical; min-height: 50px; }
 
 <!-- Toast container -->
 <div class="toast-container" id="toast-container"></div>
+
+<!-- Validation Errors Modal -->
+<div class="modal-overlay hidden" id="validation-errors-overlay" onclick="if(event.target===this)document.getElementById('validation-errors-overlay').classList.add('hidden')">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header" style="display:flex;align-items:center;gap:10px">
+      <span style="color:var(--danger);font-size:20px">&#9888;</span>
+      <span>Fix errors before exporting</span>
+    </div>
+    <div class="modal-body" id="validation-errors-body">
+      <!-- populated by JS -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="document.getElementById('validation-errors-overlay').classList.add('hidden')">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Save as Project Modal -->
+<div class="modal-overlay hidden" id="save-project-overlay" onclick="if(event.target===this)closeSaveProject()">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header" style="display:flex;align-items:center;gap:10px">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="var(--primary)" stroke-width="1.5"><path d="M13 13H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h7l3 3v7a1 1 0 0 1-1 1z"/><path d="M10 13V9H6v4M5 3v3h5"/></svg>
+      <span>Save as Project</span>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom:14px;color:var(--text-muted);font-size:13px">Creates a new project folder under <code style="background:var(--bg);padding:1px 5px;border-radius:4px">page-scripting/</code> with your workflow, users template, and scripts.</p>
+      <div class="field-group">
+        <label for="save-project-name">Project Folder Name</label>
+        <input id="save-project-name" placeholder="e.g. PO Approval Workflow">
+      </div>
+      <div id="save-project-summary" style="font-size:12px;color:var(--text-muted);margin-top:4px;line-height:1.9"></div>
+      <div id="save-project-server-warn" class="hidden" style="margin-top:12px;padding:10px 12px;background:var(--warning-light);border-radius:var(--radius);font-size:12px;color:#92400e">
+        Not running via the local app &mdash; the project folder cannot be created automatically.
+        Use <strong>Export</strong> instead and move the files to your project folder manually.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeSaveProject()">Cancel</button>
+      <button class="btn-primary" id="save-project-btn" onclick="confirmSaveProject()">Save Project</button>
+    </div>
+  </div>
+</div>
 
 <!-- Export Guide Modal -->
 <div class="modal-overlay hidden" id="export-guide-overlay" onclick="if(event.target===this)closeExportGuide()">
@@ -1740,19 +1786,11 @@ function importWorkflow() {
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   EXPORT
+   BUILD HELPERS  (shared by Export + Save as Project)
    ════════════════════════════════════════════════════════════════════ */
 
-function exportWorkflow() {
-  // Validate
-  const issues = validate();
-  if (issues.errors.length) {
-    toast(`Fix ${issues.errors.length} error(s) before exporting`, 'error');
-    return;
-  }
-
-  // Build workflow.json
-  const wf = {
+function buildWorkflowJson() {
+  return {
     name: state.workflow.name,
     description: state.workflow.description,
     bc_url: state.workflow.bc_url,
@@ -1778,8 +1816,9 @@ function exportWorkflow() {
       return step;
     })
   };
+}
 
-  // Build users.sample.json
+function buildUsersJson() {
   const users = {};
   for (const [role, info] of Object.entries(state.users)) {
     users[role] = {
@@ -1789,30 +1828,126 @@ function exportWorkflow() {
       mfa_seed: 'your-totp-seed-here'
     };
   }
+  return users;
+}
 
-  // Build app-registrations.sample.json (only if API steps exist)
+function buildAppRegsJson() {
+  const regsUsed = [...new Set(
+    state.workflow.steps
+      .filter(s => s.type === 'bc-api')
+      .map(s => s.app_registration)
+      .filter(Boolean)
+  )];
+  const appRegSample = {};
+  for (const regName of (regsUsed.length ? regsUsed : ['bc-custom-api'])) {
+    appRegSample[regName] = {
+      description: 'Entra ID app registration for BC API access',
+      client_id: 'your-client-id-here',
+      client_secret: 'your-client-secret-here',
+      tenant_id: 'your-tenant-id-here',
+      environment_name: 'latestrelease',
+      company_id: 'your-company-guid-here'
+    };
+  }
+  return appRegSample;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   EXPORT
+   ════════════════════════════════════════════════════════════════════ */
+
+function showValidationErrors(errors) {
+  const body = document.getElementById('validation-errors-body');
+  body.innerHTML = `<ul style="margin:0;padding:0 0 0 18px;line-height:2">${errors.map(e => `<li style="color:var(--danger)">${escHtml(e)}</li>`).join('')}</ul>`;
+  document.getElementById('validation-errors-overlay').classList.remove('hidden');
+}
+
+function exportWorkflow() {
+  const issues = validate();
+  if (issues.errors.length) { showValidationErrors(issues.errors); return; }
+
+  const wf = buildWorkflowJson();
+  const users = buildUsersJson();
   const hasApiSteps = state.workflow.steps.some(s => s.type === 'bc-api');
-  const regsUsed = [...new Set(state.workflow.steps.filter(s => s.type === 'bc-api').map(s => s.app_registration).filter(Boolean))];
 
   downloadFile('workflow.json', JSON.stringify(wf, null, 2));
   setTimeout(() => downloadFile('users.sample.json', JSON.stringify(users, null, 2)), 300);
 
   if (hasApiSteps) {
-    const appRegSample = {};
-    for (const regName of (regsUsed.length ? regsUsed : ['bc-custom-api'])) {
-      appRegSample[regName] = {
-        description: "Entra ID app registration for BC API access",
-        client_id: "your-client-id-here",
-        client_secret: "your-client-secret-here",
-        tenant_id: "your-tenant-id-here",
-        environment_name: "latestrelease",
-        company_id: "your-company-guid-here"
-      };
-    }
-    setTimeout(() => downloadFile('app-registrations.sample.json', JSON.stringify(appRegSample, null, 2)), 600);
+    setTimeout(() => downloadFile('app-registrations.sample.json', JSON.stringify(buildAppRegsJson(), null, 2)), 600);
   }
 
   setTimeout(() => showExportGuide(issues.warnings, hasApiSteps), hasApiSteps ? 900 : 500);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   SAVE AS PROJECT
+   ════════════════════════════════════════════════════════════════════ */
+
+function saveAsProject() {
+  const issues = validate();
+  if (issues.errors.length) { showValidationErrors(issues.errors); return; }
+
+  // Pre-fill name from workflow name
+  document.getElementById('save-project-name').value = state.workflow.name || '';
+
+  // Build summary of what will be written
+  const scriptCount = Object.keys(state.scripts).length;
+  const stepCount   = state.workflow.steps.length;
+  const hasApi      = state.workflow.steps.some(s => s.type === 'bc-api');
+  const lines = [
+    `&#10003; <strong>workflow.json</strong> &nbsp;<span style="opacity:.6">(${stepCount} step${stepCount !== 1 ? 's' : ''})</span>`,
+    `&#10003; <strong>users.sample.json</strong>`,
+    hasApi      ? `&#10003; <strong>app-registrations.sample.json</strong>` : '',
+    scriptCount ? `&#10003; <strong>${scriptCount} script file${scriptCount !== 1 ? 's' : ''}</strong> &rarr; <code style="background:var(--bg);padding:1px 4px;border-radius:3px">scripts/</code>` : '',
+  ].filter(Boolean);
+  document.getElementById('save-project-summary').innerHTML = lines.map(l => `<div>${l}</div>`).join('');
+
+  // Only works when served by the local Node app
+  const isServer = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+  document.getElementById('save-project-server-warn').classList.toggle('hidden', isServer);
+  document.getElementById('save-project-btn').disabled = !isServer;
+
+  document.getElementById('save-project-overlay').classList.remove('hidden');
+}
+
+function closeSaveProject() {
+  document.getElementById('save-project-overlay').classList.add('hidden');
+}
+
+async function confirmSaveProject() {
+  const projectName = document.getElementById('save-project-name').value.trim();
+  if (!projectName) { toast('Enter a project folder name', 'error'); return; }
+
+  const btn = document.getElementById('save-project-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    const wf       = buildWorkflowJson();
+    const users    = buildUsersJson();
+    const hasApi   = state.workflow.steps.some(s => s.type === 'bc-api');
+    const appRegs  = hasApi ? buildAppRegsJson() : null;
+    const scripts  = Object.entries(state.scripts)
+      .map(([filename, info]) => ({ name: filename, content: info.content || '' }))
+      .filter(s => s.content);
+
+    const res  = await fetch('/api/projects/scaffold', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectName, workflow: wf, users, appRegistrations: appRegs, scripts }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Server error');
+
+    closeSaveProject();
+    toast(`Project saved → ${data.projectPath}`, 'success');
+  } catch (e) {
+    toast(`Save failed: ${e.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Project';
+  }
 }
 
 function downloadFile(name, content) {
@@ -1994,7 +2129,7 @@ window.addEventListener('message', function(evt) {
   if (msg.type === 'request-export') {
     const issues = validate();
     if (issues.errors.length) {
-      toast('Fix ' + issues.errors.length + ' error(s) before saving', 'error');
+      showValidationErrors(issues.errors);
       evt.source.postMessage({ type: 'export-error', error: 'Validation failed: ' + issues.errors.join(', ') }, evt.origin || '*');
       return;
     }

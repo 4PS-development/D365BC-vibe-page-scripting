@@ -503,6 +503,58 @@ app.post('/api/projects/:name/seed', async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ROUTES — Scaffold new project from Workflow Builder
+// ══════════════════════════════════════════════════════════════════════════════
+
+app.post('/api/projects/scaffold', (req, res) => {
+  const { projectName, workflow, users, appRegistrations, scripts = [] } = req.body;
+  if (!projectName) return res.status(400).json({ error: 'projectName is required' });
+  if (!workflow)    return res.status(400).json({ error: 'workflow is required' });
+
+  // Prevent path traversal — keep only the final path segment and strip illegal chars
+  const safeName = path.basename(projectName).replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').trim();
+  if (!safeName) return res.status(400).json({ error: 'Invalid project name' });
+
+  const projDir    = path.join(ROOT, 'page-scripting', safeName);
+  const scriptsDir = path.join(projDir, 'scripts');
+
+  try {
+    fs.mkdirSync(scriptsDir, { recursive: true });
+
+    // workflow.json
+    fs.writeFileSync(path.join(projDir, 'workflow.json'), JSON.stringify(workflow, null, 2));
+
+    // users.sample.json
+    if (users) {
+      fs.writeFileSync(path.join(projDir, 'users.sample.json'), JSON.stringify(users, null, 2));
+    }
+
+    // app-registrations.sample.json (only when API steps present)
+    if (appRegistrations) {
+      fs.writeFileSync(path.join(projDir, 'app-registrations.sample.json'), JSON.stringify(appRegistrations, null, 2));
+    }
+
+    // .yml script files → scripts/
+    const savedScripts = [];
+    for (const { name, content } of scripts) {
+      if (!name || !content) continue;
+      const safeFName = path.basename(name);
+      fs.writeFileSync(path.join(scriptsDir, safeFName), content);
+      savedScripts.push(safeFName);
+    }
+
+    res.json({
+      ok: true,
+      projectName: safeName,
+      projectPath: path.relative(ROOT, projDir).replace(/\\/g, '/'),
+      savedScripts,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ROUTES — Evaluate Workflow Quality
 // ══════════════════════════════════════════════════════════════════════════════
 
