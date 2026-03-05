@@ -1,0 +1,88 @@
+name: Overdracht van project
+description: Test recording
+telemetryId: 8dd805e8-86ca-47d7-897d-6bd240ecbf4c
+start:
+  profile: VG ACQUISITEUR
+steps:
+  - type: invoke
+    target:
+      - page: Try-out Quote
+        runtimeRef: b8kz
+      - action: Successors
+    parameters: {}
+    description: Invoke <caption>Vervolgtrajecten</caption>
+  - type: page-shown
+    source:
+      page: Try-out Successor
+    modal: false
+    runtimeId: b9ob
+    description: Page <caption>Vervolgtraject</caption> was shown.
+  - type: focus
+    target:
+      - page: Try-out Successor
+        runtimeRef: b9ob
+      - repeater: Control1210190000
+      - field: Try-out No.
+    description: Focus <caption>Trajectnr.</caption>
+  - type: focus
+    target:
+      - page: Try-out Successor
+        runtimeRef: b9ob
+      - field: null
+        automationId: fb8cccf3-54ac-4d77-9ad8-136cec25583a
+        caption: null
+    description: Focus <caption>null</caption>
+  - type: invoke
+    target:
+      - page: Try-out Successor
+        runtimeRef: b9ob
+      - action: Create Project
+    parameters: {}
+    description: Invoke <caption>Project aanmaken...</caption>
+  - type: page-shown
+    source:
+      page: No. Series
+    modal: true
+    runtimeId: b9ry
+    description: Page <caption>Nr.-reeks</caption> was shown.
+  - type: invoke
+    target:
+      - page: No. Series
+        runtimeRef: b9ry
+      - repeater: Control1
+    parameters:
+      AlwaysCommit: false
+    description: Invoke row on <caption>Control1</caption>
+  - type: page-closed
+    source:
+      page: No. Series
+    runtimeId: b9ry
+    description: Page <caption>Nr.-reeks</caption> was closed.
+  - type: page-shown
+    source:
+      page: Select Try-Out Successor
+    modal: true
+    runtimeId: b9vh
+    description: Page <caption>Selecteer vervolgtraject</caption> was shown.
+  - type: input
+    target:
+      - page: Select Try-Out Successor
+        runtimeRef: b9vh
+      - field: Copy Documents
+    value: true
+    description: Input <value>true</value> into <caption>Kopieer documenten</caption>
+  - type: invoke
+    target:
+      - page: Select Try-Out Successor
+        runtimeRef: b9vh
+    invokeType: Ok
+    description: Invoke Ok on <caption>Selecteer vervolgtraject</caption>
+  - type: page-closed
+    source:
+      page: Select Try-Out Successor
+    runtimeId: b9vh
+    description: Page <caption>Selecteer vervolgtraject</caption> was closed.
+  - type: message
+    automationId: 8da61efd-0002-0003-0507-0b0d1113171d
+    text: Project PR09526000034 is aangemaakt.
+    description: "Message: <value>Project PR09526000034 is aangemaakt.</value>"
