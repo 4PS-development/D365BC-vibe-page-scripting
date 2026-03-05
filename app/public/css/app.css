@@ -272,6 +272,37 @@ label small { font-weight: 400; color: var(--text-muted); }
 .role-row-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 500px) { .role-row-grid { grid-template-columns: 1fr; } }
 
+/* MFA help button (? next to TOTP seed field) */
+.btn-mfa-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-mfa-help:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* MFA help modal step list */
+.mfa-help-steps { padding-left: 20px; margin: 0; }
+.mfa-help-steps li { margin-bottom: 18px; font-size: 13px; line-height: 1.5; }
+.mfa-help-steps li img {
+  display: block;
+  margin-top: 8px;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
 /* ── Modal ───────────────────────────────────────────────────────────────── */
 .modal { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; }
 .modal.hidden { display: none; }

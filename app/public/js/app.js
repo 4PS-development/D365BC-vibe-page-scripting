@@ -373,6 +373,10 @@ document.getElementById('btn-confirm-seed').addEventListener('click', async () =
   await loadEnvironments();
 });
 
+function openMfaHelp() {
+  document.getElementById('modal-mfa-help').classList.remove('hidden');
+}
+
 function addRoleRow(roleName, username, hasPassword, hasMfa) {
   const id = ++modalRoleCount;
   const row = document.createElement('div');
@@ -397,7 +401,11 @@ function addRoleRow(roleName, username, hasPassword, hasMfa) {
           Stored in <strong style="color:#666">Windows Credential Manager</strong> (or DPAPI-encrypted file if keytar is unavailable) — never written to disk in plain text.
         </span>
       </label>
-      <label>MFA seed <small>(optional)</small>
+      <label>
+        <span style="display:flex;align-items:center;gap:6px">
+          MFA seed <small>(optional)</small>
+          <button type="button" class="btn-mfa-help" onclick="openMfaHelp()" title="How to get your TOTP seed">?</button>
+        </span>
         <input type="password" class="input" data-field="mfaSeed" placeholder="${hasMfa ? '(unchanged)' : 'TOTP secret'}" autocomplete="off" />
       </label>
     </div>`;

@@ -142,6 +142,48 @@ bc-replay natively supports TOTP-based MFA (authenticator app) via built-in para
 
 > ⚠️ The seed is never shown again after setup. If you miss it, delete and recreate the MFA method.
 
+#### Getting Your TOTP Seed — Visual Guide
+
+Use an **InPrivate / Incognito** browser window throughout these steps to avoid cached sessions interfering.
+
+**1. Confirm Software OATH tokens are enabled in Entra ID**
+
+Before setting up the account, ensure your tenant allows Software OATH tokens as an authentication method (`Entra ID → Security → Authentication methods`).
+
+![Entra ID Authentication Methods settings showing Software OATH tokens enabled](https://raw.githubusercontent.com/andywingate/D365BC-vibe-page-scripting/main/bc-replay/bc-replay-mfa-solution/.assets/image.png)
+
+**2. Go to https://account.microsoft.com/security and sign in**
+
+Sign in with your test account credentials. Navigate to **Security info** and click **Add sign-in method**.
+
+**3. Choose "I want to use a different authenticator app"**
+
+When prompted, select "I want to set up a different method" or bypass the default suggestion and choose **Authenticator app**.
+
+![Microsoft security info page with setup different method option](https://raw.githubusercontent.com/andywingate/D365BC-vibe-page-scripting/main/bc-replay/bc-replay-mfa-solution/.assets/image-1.png)
+
+**4. Click Next on the Authenticator app setup page**
+
+![Microsoft Authenticator app setup start page](https://raw.githubusercontent.com/andywingate/D365BC-vibe-page-scripting/main/bc-replay/bc-replay-mfa-solution/.assets/image-2.png)
+
+**5. On the QR code screen, click "Can't scan image?"**
+
+Do **not** scan the QR code. Instead click the **"Can't scan image?"** link to reveal the text secret key.
+
+![QR code screen with "Can't scan image?" link](https://raw.githubusercontent.com/andywingate/D365BC-vibe-page-scripting/main/bc-replay/bc-replay-mfa-solution/.assets/image-3.png)
+
+![Alternative view of QR code setup screen](https://raw.githubusercontent.com/andywingate/D365BC-vibe-page-scripting/main/bc-replay/bc-replay-mfa-solution/.assets/image-4.png)
+
+**6. Copy the secret key — this is your TOTP seed**
+
+The secret key displayed here (Base32 format) is your `BC_MFA_SEED` value. Copy it now and store it in a password manager or secure notes.
+
+![Secret key displayed in text format for manual entry into authenticator app](https://raw.githubusercontent.com/andywingate/D365BC-vibe-page-scripting/main/bc-replay/bc-replay-mfa-solution/.assets/image-5.png)
+
+**7. Complete the setup and verify**
+
+Add the seed to an authenticator app (Microsoft Authenticator, Authy, etc.) to confirm it generates valid codes, then finish the wizard.
+
 **Step 2: Store the seed in an environment variable**
 ```powershell
 $env:BC_MFA_SEED = "YOUR_TOTP_SEED_HERE"

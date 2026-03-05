@@ -141,6 +141,66 @@
           </div>
         </div>
       </div>
+
+      <!-- MFA Seed Setup Helper -->
+      <div id="modal-mfa-help" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-mfa-help-title">
+        <div class="modal-backdrop" onclick="document.getElementById('modal-mfa-help').classList.add('hidden')"></div>
+        <div class="modal-box" style="max-width:700px;max-height:88vh;overflow-y:auto;padding:24px 28px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <h2 id="modal-mfa-help-title" style="margin:0">How to get your TOTP seed</h2>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('modal-mfa-help').classList.add('hidden')">Close</button>
+          </div>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px">
+            Follow these steps on your test account to extract the TOTP secret that bc-replay uses to auto-generate one-time passwords.
+            You only need to do this once per account. &nbsp;
+            <a href="/docs/MFA - OTP Setup Guide.md" target="_blank">Open full guide</a>
+          </p>
+          <ol class="mfa-help-steps">
+            <li>
+              <strong>Go to <a href="https://account.microsoft.com/security" target="_blank">account.microsoft.com/security</a></strong>
+              and click <em>Add a new way to sign in or verify</em>.
+              <img src="/docs/images/MFA - add logon method.png" alt="Add logon method" />
+            </li>
+            <li>
+              Choose <strong>Use an authenticator app</strong>, then click <em>Set up a different authenticator app</em>.
+              <img src="/docs/images/MFA - setup an different authentication app.png" alt="Setup different authenticator app" />
+            </li>
+            <li>
+              On the QR code screen click <strong>I can't scan the QR code</strong>.
+              <img src="/docs/images/MFA - cant scan the Qr code.png" alt="Can't scan QR code" />
+            </li>
+            <li>
+              Copy the <strong>Secret key</strong> — this is your TOTP seed. Paste it into the MFA seed field above.
+              Also note the <em>Account name</em> for the next step.
+              <img src="/docs/images/MFA - copy details to create manual entry in MS authenticator.png" alt="Copy seed details" />
+            </li>
+            <li>
+              On your phone: open Microsoft Authenticator → add account → choose <em>Other account (Google, Facebook, etc.)</em>.
+              When prompted, choose <strong>Enter manually</strong> (or OR code if you prefer).
+              <img src="/docs/images/MFA - Scan qr code choose manual.jpeg" alt="Choose manual entry" />
+            </li>
+            <li>
+              Enter the <strong>account name</strong> and paste the <strong>secret key</strong> from step 4.
+              <img src="/docs/images/MFA - enter account number and OTP seed.jpeg" alt="Enter seed on phone" />
+            </li>
+            <li>
+              The account now appears in your authenticator app — confirm it looks correct.
+              <img src="/docs/images/MFA - Add account in authenticator app.jpeg" alt="Account added to authenticator" />
+            </li>
+            <li>
+              Back in the browser, enter the <strong>6-digit code</strong> currently shown in the app.
+              <img src="/docs/images/MFA - enter code from app.png" alt="Enter verification code" />
+            </li>
+            <li>
+              Done! When prompted, set this as your <strong>default sign-in method</strong>.
+              <img src="/docs/images/MFA - set default logon method.png" alt="Set default method" />
+            </li>
+          </ol>
+          <p style="font-size:12px;color:var(--text-muted);margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+            Tip: bc-replay re-generates the 6-digit OTP automatically during test runs — no manual entry needed once the seed is saved here.
+          </p>
+        </div>
+      </div>
     </section>
 
     <!-- ── WORKFLOW DESIGNER ── -->

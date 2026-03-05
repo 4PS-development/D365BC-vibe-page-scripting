@@ -85,6 +85,7 @@ app.use('/tools', express.static(path.join(ROOT, 'tools')));
 // Serve page-scripting tree so Playwright reports and screenshots are reachable
 app.use('/result-files', express.static(path.join(ROOT, 'page-scripting'), { dotfiles: 'ignore' }));
 app.use('/result-files-bc', express.static(path.join(ROOT, 'bc-replay', 'test-results'), { dotfiles: 'ignore' }));
+app.use('/docs', express.static(path.join(ROOT, 'docs')));
 
 function broadcast(msg) {
   const data = JSON.stringify(msg);
@@ -1154,7 +1155,9 @@ app.get('/api/health/deps', (_req, res) => {
   res.json(checkDeps());
 });
 
-
+// ── Start server ──────────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 3333;
+server.listen(PORT, '127.0.0.1', () => {
   // Warn about missing deps at startup
   const deps = checkDeps();
   if (!deps.allOk) {

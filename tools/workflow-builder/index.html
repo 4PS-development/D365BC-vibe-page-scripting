@@ -548,6 +548,13 @@ textarea { resize: vertical; min-height: 50px; }
         <textarea id="wf-desc" rows="2" placeholder="What does this workflow do?" oninput="updateWorkflowMeta()"></textarea>
       </div>
       <div class="field-group">
+        <label for="wf-env">Environment</label>
+        <select id="wf-env" onchange="onEnvironmentChange()">
+          <option value="">— select environment —</option>
+        </select>
+        <p class="text-sm text-muted mt-2" id="wf-env-hint" style="font-size:11px;color:var(--text-muted)">Select an environment to auto-populate roles and URL.</p>
+      </div>
+      <div class="field-group">
         <label for="wf-url">BC Environment URL</label>
         <input id="wf-url" placeholder="https://businesscentral.dynamics.com/..." oninput="updateWorkflowMeta()">
       </div>
@@ -560,7 +567,7 @@ textarea { resize: vertical; min-height: 50px; }
         <button class="btn-sm" onclick="showAddUserDialog()">+ Add</button>
       </h3>
       <div id="users-list"></div>
-      <p class="text-sm text-muted mt-2" id="users-empty">Define the roles involved in this workflow.</p>
+      <p class="text-sm text-muted mt-2" id="users-empty">Select an environment above to load roles, or add manually.</p>
     </div>
 
     <!-- Script Library -->
@@ -708,7 +715,8 @@ let state = {
   appRegistrations: {}, // regName -> { client_id, client_secret_hint, tenant_id, environment_name, company_id }
   selectedStepId: null,
   nextColor: 0,
-  currentProject: null  // name of the active project folder (null = no project selected)
+  currentProject: null,  // name of the active project folder (null = no project selected)
+  environment: null      // selected environment name (null = none)
 };
 
 /* API Component templates */
@@ -791,6 +799,7 @@ function updateWorkflowMeta() {
   state.workflow.name = document.getElementById('wf-name').value;
   state.workflow.description = document.getElementById('wf-desc').value;
   state.workflow.bc_url = document.getElementById('wf-url').value;
+  state.environment = document.getElementById('wf-env').value || null;
   document.getElementById('workflow-title-display').textContent = state.workflow.name || '';
 }
 
@@ -799,6 +808,8 @@ function loadMetaToForm() {
   document.getElementById('wf-desc').value = state.workflow.description || '';
   document.getElementById('wf-url').value = state.workflow.bc_url || '';
   document.getElementById('workflow-title-display').textContent = state.workflow.name || '';
+  const envSel = document.getElementById('wf-env');
+  if (envSel) envSel.value = state.environment || '';
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -812,6 +823,67 @@ function showAddUserDialog() {
   if (state.users[key]) { toast('Role already exists', 'error'); return; }
   const desc = prompt('Description (e.g. "Creates purchase orders"):') || '';
   addUser(key, desc);
+}
+
+async function loadEnvironmentsSelect() {
+  const sel = document.getElementById('wf-env');
+  if (!sel) return;
+  const isServer = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+  if (!isServer) return;
+  try {
+    const res = await fetch('/api/environments');
+    if (!res.ok) return;
+    const envs = await res.json();
+    // Preserve current selection
+    const current = sel.value;
+    sel.innerHTML = '<option value="">— select environment —</option>';
+    for (const env of envs) {
+      const opt = document.createElement('option');
+      opt.value = env.name;
+      opt.textContent = env.name;
+      sel.appendChild(opt);
+    }
+    if (current) sel.value = current;
+  } catch { /* app may not be running */ }
+}
+
+async function onEnvironmentChange() {
+  const envName = document.getElementById('wf-env').value;
+  state.environment = envName || null;
+  if (!envName) return;
+  try {
+    const res = await fetch(`/api/environments/${encodeURIComponent(envName)}`);
+    if (!res.ok) { toast('Could not load environment', 'error'); return; }
+    const env = await res.json();
+
+    // Fill URL if not already set
+    if (env.url && !document.getElementById('wf-url').value) {
+      document.getElementById('wf-url').value = env.url;
+      state.workflow.bc_url = env.url;
+    }
+
+    // Populate roles
+    if (env.roles && env.roles.length) {
+      let added = 0;
+      for (const r of env.roles) {
+        const key = r.role;
+        if (!state.users[key]) {
+          addUser(key, '', undefined, r.username || '');
+          added++;
+        } else {
+          // Update username if we have one
+          if (r.username) state.users[key].username = r.username;
+        }
+      }
+      renderUsers();
+      if (added > 0) toast(`Loaded ${added} role${added > 1 ? 's' : ''} from "${envName}"`, 'success');
+      else toast(`Roles already present — usernames refreshed from "${envName}"`, 'success');
+    } else {
+      toast(`Environment "${envName}" has no roles configured yet`, 'warning');
+    }
+  } catch (e) {
+    toast(`Failed to load environment: ${e.message}`, 'error');
+  }
 }
 
 function addUser(key, description, color, username) {
@@ -949,7 +1021,7 @@ function addStep(afterIndex) {
     id: `step-${idx}`,
     name: `Step ${idx}`,
     user: Object.keys(state.users)[0] || '',
-    script: '',
+    scripts: [],
     depends_on: null,
     capture: {},
     inject: {}
@@ -1127,7 +1199,8 @@ function renderCanvas() {
           </div>
         </div>`;
     } else {
-      const scriptLabel = step.script || (step.scripts ? step.scripts.join(', ') : 'No script assigned');
+      const stepScripts = step.scripts && step.scripts.length ? step.scripts : (step.script ? [step.script] : []);
+      const scriptLabel = stepScripts.length ? stepScripts.map(s => s.replace('./scripts/', '')).join(' → ') : 'No script assigned';
       const captureCount = Object.keys(step.capture || {}).length;
       const injectCount = Object.keys(step.inject || {}).length;
       cardBodyHtml = `
@@ -1246,14 +1319,20 @@ function handleStepDrop(e, stepIndex) {
   const filename = e.dataTransfer.getData('text/plain');
   if (filename && state.scripts[filename]) {
     const step = state.workflow.steps[stepIndex];
-    step.script = `./scripts/${filename}`;
-    // Auto-populate capture from script metadata
-    const meta = state.scripts[filename];
-    if (meta.captures.length && !Object.keys(step.capture || {}).length) {
-      step.capture = {};
-      for (const cap of meta.captures) {
-        const varName = cap.replace(/\s+/g, '_').toLowerCase();
-        step.capture[varName] = cap;
+    if (!step.scripts) step.scripts = [];
+    const scriptPath = `./scripts/${filename}`;
+    if (!step.scripts.includes(scriptPath)) {
+      step.scripts.push(scriptPath);
+      // Auto-populate captures from first script's metadata
+      if (step.scripts.length === 1) {
+        const meta = state.scripts[filename];
+        if (meta && meta.captures.length && !Object.keys(step.capture || {}).length) {
+          step.capture = {};
+          for (const cap of meta.captures) {
+            const varName = cap.replace(/[^a-zA-Z0-9]+/g, '_').toLowerCase().replace(/^_|_$/g, '');
+            step.capture[varName] = cap;
+          }
+        }
       }
     }
     renderCanvas();
@@ -1541,9 +1620,20 @@ function renderPropertiesReplay(step) {
     `<option value="${escAttr(k)}" ${step.user === k ? 'selected' : ''}>${escHtml(k)}</option>`
   ).join('');
 
-  const scriptOptions = Object.keys(state.scripts).map(fn =>
-    `<option value="./scripts/${escAttr(fn)}" ${step.script === `./scripts/${fn}` ? 'selected' : ''}>${escHtml(fn)}</option>`
-  ).join('');
+  const stepScripts = step.scripts && step.scripts.length ? step.scripts : (step.script ? [step.script] : []);
+  const addableScriptOptions = Object.keys(state.scripts)
+    .filter(fn => !stepScripts.includes(`./scripts/${fn}`))
+    .map(fn => `<option value="${escAttr(fn)}">${escHtml(fn)}</option>`)
+    .join('');
+  const scriptsListHtml = stepScripts.map((s, i) => {
+    const fn = s.replace('./scripts/', '');
+    return `<div style="display:flex;align-items:center;gap:4px;padding:4px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(fn)}">${escHtml(fn)}</span>
+      ${i > 0 ? `<button class="btn-sm btn-icon" onclick="moveScriptInStep('${escAttr(step.id)}', ${i}, -1)" title="Move up">&uarr;</button>` : '<div style="width:30px"></div>'}
+      ${i < stepScripts.length - 1 ? `<button class="btn-sm btn-icon" onclick="moveScriptInStep('${escAttr(step.id)}', ${i}, 1)" title="Move down">&darr;</button>` : '<div style="width:30px"></div>'}
+      <button class="btn-sm btn-icon" style="color:var(--danger)" onclick="removeScriptFromStep('${escAttr(step.id)}', ${i})" title="Remove">&times;</button>
+    </div>`;
+  }).join('');
 
   const depOptions = state.workflow.steps
     .filter(s => s.id !== step.id)
@@ -1559,8 +1649,9 @@ function renderPropertiesReplay(step) {
     }
   }
 
-  // Detect suggested captures/injects from the assigned script
-  const scriptFile = step.script?.replace('./scripts/', '');
+  // Detect suggested captures/injects from the first assigned script
+  const stepScriptsForMeta = step.scripts && step.scripts.length ? step.scripts : (step.script ? [step.script] : []);
+  const scriptFile = stepScriptsForMeta[0]?.replace('./scripts/', '');
   const scriptMeta = state.scripts[scriptFile];
   let suggestions = '';
 
@@ -1616,12 +1707,18 @@ function renderPropertiesReplay(step) {
       </select>
     </div>
     <div class="field-group">
-      <label>Script (.yml)</label>
-      <select onchange="updateStepField('${escAttr(step.id)}', 'script', this.value)">
-        <option value="">-- select script --</option>
-        ${scriptOptions}
-      </select>
-      <span class="text-sm text-muted">Or drag a script from the library onto the step card.</span>
+      <label class="flex justify-between items-center">
+        Scripts (.yml)
+        ${addableScriptOptions ? `<span class="add-row-btn" onclick="toggleAddScriptSelect('${escAttr(step.id)}')">+ Add</span>` : ''}
+      </label>
+      ${scriptsListHtml || '<div class="text-sm text-muted">No scripts assigned.</div>'}
+      <div id="add-script-sel-${escAttr(step.id)}" class="hidden mt-2">
+        <select onchange="addScriptToStep('${escAttr(step.id)}', this.value); this.value=''">
+          <option value="">-- select script --</option>
+          ${addableScriptOptions}
+        </select>
+      </div>
+      <span class="text-sm text-muted" style="margin-top:4px">Scripts run in order. Or drag from the library onto the step card.</span>
     </div>
     <div class="field-group">
       <label>Depends On</label>
@@ -1691,10 +1788,26 @@ function updateStepField(stepId, field, value) {
 
   step[field] = value;
 
-  // If script changed, auto-fill captures/injects
-  if (field === 'script') {
-    const fn = value.replace('./scripts/', '');
-    const meta = state.scripts[fn];
+  renderCanvas();
+  renderProperties();
+}
+
+function toggleAddScriptSelect(stepId) {
+  const el = document.getElementById(`add-script-sel-${stepId}`);
+  if (el) el.classList.toggle('hidden');
+}
+
+function addScriptToStep(stepId, filename) {
+  if (!filename) return;
+  const step = state.workflow.steps.find(s => s.id === stepId);
+  if (!step) return;
+  if (!step.scripts) step.scripts = [];
+  const path = `./scripts/${filename}`;
+  if (step.scripts.includes(path)) { toast('Script already in this step', 'error'); return; }
+  step.scripts.push(path);
+  // Auto-populate captures from first script's metadata
+  if (step.scripts.length === 1) {
+    const meta = state.scripts[filename];
     if (meta && meta.captures.length && !Object.keys(step.capture || {}).length) {
       step.capture = {};
       for (const cap of meta.captures) {
@@ -1703,7 +1816,24 @@ function updateStepField(stepId, field, value) {
       }
     }
   }
+  renderCanvas();
+  renderProperties();
+}
 
+function removeScriptFromStep(stepId, index) {
+  const step = state.workflow.steps.find(s => s.id === stepId);
+  if (!step || !step.scripts) return;
+  step.scripts.splice(index, 1);
+  renderCanvas();
+  renderProperties();
+}
+
+function moveScriptInStep(stepId, index, dir) {
+  const step = state.workflow.steps.find(s => s.id === stepId);
+  if (!step || !step.scripts) return;
+  const newIdx = index + dir;
+  if (newIdx < 0 || newIdx >= step.scripts.length) return;
+  [step.scripts[index], step.scripts[newIdx]] = [step.scripts[newIdx], step.scripts[index]];
   renderCanvas();
   renderProperties();
 }
@@ -1747,7 +1877,8 @@ function addCapture(stepId) {
 function autoFillCaptures(stepId) {
   const step = state.workflow.steps.find(s => s.id === stepId);
   if (!step) return;
-  const fn = step.script?.replace('./scripts/', '');
+  const scripts = step.scripts && step.scripts.length ? step.scripts : (step.script ? [step.script] : []);
+  const fn = scripts[0]?.replace('./scripts/', '');
   const meta = state.scripts[fn];
   if (!meta) return;
   step.capture = {};
@@ -1795,7 +1926,8 @@ function addInject(stepId) {
 function autoFillInjects(stepId) {
   const step = state.workflow.steps.find(s => s.id === stepId);
   if (!step) return;
-  const fn = step.script?.replace('./scripts/', '');
+  const scripts = step.scripts && step.scripts.length ? step.scripts : (step.script ? [step.script] : []);
+  const fn = scripts[0]?.replace('./scripts/', '');
   const meta = state.scripts[fn];
   if (!meta) return;
 
@@ -1934,10 +2066,11 @@ function buildWorkflowJson() {
         if (s.body_template && Object.keys(s.body_template).length) step.body_template = s.body_template;
         if (s.capture_response && Object.keys(s.capture_response).length) step.capture_response = s.capture_response;
       } else {
-        if (s.scripts && s.scripts.length > 1) {
-          step.scripts = s.scripts;
-        } else {
-          step.script = s.script;
+        const scripts = s.scripts && s.scripts.length ? s.scripts : (s.script ? [s.script] : []);
+        if (scripts.length > 1) {
+          step.scripts = scripts;
+        } else if (scripts.length === 1) {
+          step.script = scripts[0];
         }
         if (Object.keys(s.capture || {}).length) step.capture = s.capture;
         if (Object.keys(s.inject || {}).length) step.inject = s.inject;
@@ -2225,6 +2358,7 @@ function showProjectPicker() {
   document.getElementById('project-picker').classList.remove('hidden');
   document.getElementById('project-name-form').classList.remove('visible');
   loadProjects();
+  loadEnvironmentsSelect();
 }
 
 function closeProjectPicker() {
@@ -2341,6 +2475,7 @@ function activateProject(name) {
     document.getElementById('wf-name').value = name;
     document.getElementById('workflow-title-display').textContent = name;
   }
+  loadEnvironmentsSelect();
   renderCanvas();
   renderUsers();
   renderScripts();
@@ -2354,6 +2489,7 @@ function clearWorkflowState() {
   state.appRegistrations = {};
   state.selectedStepId = null;
   state.nextColor = 0;
+  state.environment = null;
   loadMetaToForm();
 }
 
@@ -2377,8 +2513,7 @@ function applyLoadedWorkflow(wf) {
       step.body_template = s.body_template || {};
       step.capture_response = s.capture_response || {};
     } else {
-      step.script = s.script || '';
-      step.scripts = s.scripts || null;
+      step.scripts = s.scripts && s.scripts.length ? s.scripts : (s.script ? [s.script] : []);
       step.capture = s.capture || {};
       step.inject = s.inject || {};
     }
