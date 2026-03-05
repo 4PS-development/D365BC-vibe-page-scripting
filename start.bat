@@ -22,6 +22,25 @@ if not exist "%~dp0app\node_modules" (
     )
 )
 
+:: Install bc-replay dependencies if needed
+if not exist "%~dp0bc-replay\node_modules" (
+    echo Installing bc-replay dependencies...
+    npm install --prefix "%~dp0bc-replay" --silent
+    if errorlevel 1 (
+        echo [ERROR] npm install failed in bc-replay.
+        pause
+        exit /b 1
+    )
+)
+
+:: Install Playwright Chromium if needed
+if not exist "%LOCALAPPDATA%\ms-playwright" (
+    echo Installing Playwright Chromium browser...
+    cd /d "%~dp0bc-replay"
+    npx playwright install chromium
+    cd /d "%~dp0"
+)
+
 echo.
 echo  Starting BC Page Scripting...
 echo  The app will open in your browser automatically.

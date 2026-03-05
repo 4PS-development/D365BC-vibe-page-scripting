@@ -47,6 +47,44 @@ if (-not (Test-Path $nodeModules)) {
     Write-Host "  Done." -ForegroundColor Green
 }
 
+# ── Install bc-replay dependencies if needed ─────────────────────────────────
+$bcReplayDir  = Join-Path $root 'bc-replay'
+$bcReplayMods = Join-Path $bcReplayDir 'node_modules'
+if (-not (Test-Path $bcReplayMods)) {
+    Write-Host ""
+    Write-Host "  Installing bc-replay dependencies..." -ForegroundColor Cyan
+    Push-Location $bcReplayDir
+    try {
+        npm install --silent
+        if ($LASTEXITCODE -ne 0) { throw "npm install failed in bc-replay" }
+    } finally {
+        Pop-Location
+    }
+    Write-Host "  Done." -ForegroundColor Green
+}
+
+# ── Install Playwright Chromium if needed ─────────────────────────────────────
+$chromiumPaths = @(
+    "$env:USERPROFILE\AppData\Local\ms-playwright",
+    "$env:LOCALAPPDATA\ms-playwright"
+)
+$chromiumFound = $chromiumPaths | Where-Object { Test-Path $_ } |
+    ForEach-Object { Get-ChildItem "$_\chromium*" -ErrorAction SilentlyContinue } |
+    Select-Object -First 1
+
+if (-not $chromiumFound) {
+    Write-Host ""
+    Write-Host "  Installing Playwright Chromium browser..." -ForegroundColor Cyan
+    Push-Location $bcReplayDir
+    try {
+        npx playwright install chromium 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Playwright install failed" }
+    } finally {
+        Pop-Location
+    }
+    Write-Host "  Done." -ForegroundColor Green
+}
+
 # ── Launch ────────────────────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "  Starting BC Page Scripting..." -ForegroundColor Cyan

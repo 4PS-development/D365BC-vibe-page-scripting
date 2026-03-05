@@ -105,7 +105,8 @@ async function loadSetup() {
     const rows = [
       { label: `Node.js ${s.nodeVersion}`, ok: s.nodeOk, warn: !s.nodeOk, msg: s.nodeOk ? 'Node.js 18+ detected' : 'Node.js 18 or later is required' },
       { label: s.psVersion, ok: s.psOk, warn: !s.psOk, msg: s.psOk ? 'PowerShell 7 detected' : 'PowerShell 7 is required — install from aka.ms/powershell' },
-      { label: 'bc-replay dependencies', ok: s.bcReplayInstalled, warn: !s.bcReplayInstalled, msg: s.bcReplayInstalled ? 'node_modules found' : 'Run install below' },
+      { label: 'bc-replay dependencies', ok: s.bcReplayInstalled, warn: !s.bcReplayInstalled, msg: s.bcReplayInstalled ? 'node_modules found' : 'Click “Install bc-replay dependencies” below' },
+      { label: 'Playwright Chromium browser', ok: s.chromiumInstalled, warn: !s.chromiumInstalled, msg: s.chromiumInstalled ? 'Browser found in ms-playwright cache' : 'Click “Install Playwright Chromium” below' },
       { label: `Credentials backend: ${s.credBackend}`, ok: true, msg: '' },
     ];
 
@@ -116,9 +117,13 @@ async function loadSetup() {
       container.appendChild(d);
     });
 
-    const actionsEl = document.getElementById('setup-actions');
-    if (!s.bcReplayInstalled) actionsEl.style.display = '';
-    else actionsEl.style.display = 'none';
+    const actionsEl  = document.getElementById('setup-actions');
+    const btnReplay  = document.getElementById('btn-install-bcreplay');
+    const btnPW      = document.getElementById('btn-install-playwright');
+    const needAny    = !s.bcReplayInstalled || !s.chromiumInstalled;
+    actionsEl.style.display = needAny ? '' : 'none';
+    btnReplay.style.display = !s.bcReplayInstalled ? '' : 'none';
+    btnPW.style.display     = !s.chromiumInstalled ? '' : 'none';
   } catch (e) {
     container.innerHTML = `<div class="check-item error"><span class="check-icon"></span>Could not reach server: ${e.message}</div>`;
   }
@@ -128,6 +133,12 @@ document.getElementById('btn-install-bcreplay').addEventListener('click', async 
   document.getElementById('setup-output').textContent = '';
   document.getElementById('setup-output-card').style.display = '';
   await POST('/setup/install');
+});
+
+document.getElementById('btn-install-playwright').addEventListener('click', async () => {
+  document.getElementById('setup-output').textContent = '';
+  document.getElementById('setup-output-card').style.display = '';
+  await POST('/setup/install-playwright');
 });
 
 function onSetupDone(code) {
@@ -381,6 +392,10 @@ function addRoleRow(roleName, username, hasPassword, hasMfa) {
       </label>
       <label>Password
         <input type="password" class="input" data-field="password" placeholder="${hasPassword ? '(unchanged — enter new value to update)' : '••••••••'}" autocomplete="new-password" />
+        <span style="display:flex;align-items:flex-start;gap:4px;font-size:11px;color:#888;line-height:1.4;margin-top:4px">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0;margin-top:1px"><rect x="3" y="7" width="10" height="8" rx="1"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/></svg>
+          Stored in <strong style="color:#666">Windows Credential Manager</strong> (or DPAPI-encrypted file if keytar is unavailable) — never written to disk in plain text.
+        </span>
       </label>
       <label>MFA seed <small>(optional)</small>
         <input type="password" class="input" data-field="mfaSeed" placeholder="${hasMfa ? '(unchanged)' : 'TOTP secret'}" autocomplete="off" />

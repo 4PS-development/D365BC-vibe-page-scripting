@@ -396,16 +396,125 @@ textarea { resize: vertical; min-height: 50px; }
   color: var(--text-light); font-size: 14px; line-height: 1;
 }
 .reg-chip .remove-btn:hover { color: var(--danger); }
+
+/* ── Project Picker ─────────────────────────────────────────────────── */
+.project-picker-screen {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: flex-start; overflow-y: auto;
+  z-index: 300; padding: 40px 24px 60px;
+}
+.project-picker-screen.hidden { display: none !important; }
+
+.project-picker-header {
+  text-align: center; margin-bottom: 32px;
+}
+.project-picker-header h1 {
+  font-size: 26px; font-weight: 700; color: var(--text); margin-bottom: 6px;
+}
+.project-picker-header p { font-size: 14px; color: var(--text-muted); max-width: 480px; }
+
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px; width: 100%; max-width: 900px;
+}
+
+.project-card {
+  background: var(--surface); border-radius: 10px;
+  border: 2px solid var(--border); padding: 20px;
+  cursor: pointer; transition: all 0.18s;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.project-card:hover {
+  border-color: var(--primary); box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+.project-card.new-project {
+  border-style: dashed; align-items: center; justify-content: center;
+  min-height: 110px; text-align: center; color: var(--text-muted);
+}
+.project-card.new-project:hover { color: var(--primary); }
+.project-card .project-title {
+  font-weight: 600; font-size: 15px;
+}
+.project-card .project-has-workflow {
+  font-size: 11px; display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 12px;
+  background: var(--success-light); color: var(--success); width: fit-content;
+}
+.project-card .project-no-workflow {
+  font-size: 11px; color: var(--text-muted);
+}
+
+.project-picker-divider {
+  width: 100%; max-width: 900px;
+  border: none; border-top: 1px solid var(--border);
+  margin: 24px 0 8px;
+}
+
+.project-name-form {
+  width: 100%; max-width: 480px;
+  background: var(--surface); border-radius: 10px;
+  border: 2px solid var(--border); padding: 20px 24px;
+  display: none;
+}
+.project-name-form.visible { display: block; }
+.project-name-form h3 { font-size: 15px; margin-bottom: 12px; }
+
+.project-picker-loading {
+  color: var(--text-muted); text-align: center; padding: 40px;
+  font-size: 14px;
+}
 </style>
 </head>
 <body>
+
+<!-- ── Project Picker Screen ──────────────────────────────────────── -->
+<div id="project-picker" class="project-picker-screen">
+  <div class="project-picker-header">
+    <img src="https://www.4ps.nl/wp-content/uploads/sites/2/4PS_Endorsement-2024_RGB_stacked.png" alt="4PS" style="height:36px;margin-bottom:16px">
+    <h1><span style="color:var(--primary)">BC</span> Workflow Builder</h1>
+    <p>Select an existing project to continue editing, or create a new one.</p>
+  </div>
+
+  <div id="project-grid" class="project-grid">
+    <div class="project-picker-loading" style="grid-column:1/-1">Loading projects...</div>
+  </div>
+
+  <hr class="project-picker-divider">
+
+  <div id="project-name-form" class="project-name-form">
+    <h3>New Project</h3>
+    <div class="field-group">
+      <label for="new-project-name">Project Name</label>
+      <input id="new-project-name" placeholder="e.g. PO Approval Workflow" onkeydown="if(event.key==='Enter')confirmNewProject()">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn-primary" onclick="confirmNewProject()">Create Project</button>
+      <button onclick="document.getElementById('project-name-form').classList.remove('visible')">Cancel</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── Header ──────────────────────────────────────────────────────── -->
 <header>
   <img src="https://www.4ps.nl/wp-content/uploads/sites/2/4PS_Endorsement-2024_RGB_stacked.png" alt="4PS" style="height:32px">
   <h1><span>BC</span> Workflow Builder</h1>
   <span class="text-sm text-muted" id="workflow-title-display"></span>
+  <div id="current-project-badge" style="display:none;align-items:center;gap:6px;
+    background:rgba(255,255,255,0.1);padding:4px 10px;border-radius:var(--radius);
+    font-size:12px;color:#fff;border:1px solid rgba(255,255,255,0.2)">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 4v10h12V4M6 4V2h4v2"/></svg>
+    <span id="current-project-label" style="font-weight:600"></span>
+    <button onclick="showProjectPicker()" style="background:none;border:none;color:rgba(255,255,255,0.6);
+      font-size:11px;padding:0 0 0 4px;cursor:pointer;font-weight:400" title="Switch project">switch</button>
+  </div>
   <div class="header-actions">
+    <button id="btn-save-project" class="btn-primary hidden" onclick="saveToCurrentProject()" title="Save to project folder">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 13H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h7l3 3v7a1 1 0 0 1-1 1z"/><path d="M10 13V9H6v4M5 3v3h5"/></svg>
+      Save
+    </button>
     <button onclick="importWorkflow()" title="Import existing workflow.json">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 10v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-3M5 5l3-3 3 3M8 2v9"/></svg>
       Import
@@ -598,7 +707,8 @@ let state = {
   scripts: {},        // filename -> { name, content, parameters:[], captures:[], pages:[] }
   appRegistrations: {}, // regName -> { client_id, client_secret_hint, tenant_id, environment_name, company_id }
   selectedStepId: null,
-  nextColor: 0
+  nextColor: 0,
+  currentProject: null  // name of the active project folder (null = no project selected)
 };
 
 /* API Component templates */
@@ -704,14 +814,18 @@ function showAddUserDialog() {
   addUser(key, desc);
 }
 
-function addUser(key, description, color) {
+function addUser(key, description, color, username) {
   if (!color) {
     color = ROLE_COLORS[state.nextColor % ROLE_COLORS.length];
     state.nextColor++;
   }
-  state.users[key] = { description, color };
+  state.users[key] = { description, color, username: username || '' };
   renderUsers();
   renderCanvas();
+}
+
+function updateUserUsername(key, value) {
+  if (state.users[key]) state.users[key].username = value;
 }
 
 function removeUser(key) {
@@ -730,13 +844,28 @@ function renderUsers() {
 
   list.innerHTML = keys.map(key => {
     const u = state.users[key];
-    return `<div class="user-item">
-      <div class="user-color" style="background:${u.color}"></div>
-      <div style="flex:1">
-        <div class="user-name">${escHtml(key)}</div>
-        ${u.description ? `<div class="user-desc">${escHtml(u.description)}</div>` : ''}
+    return `<div class="user-item" style="flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="user-color" style="background:${u.color};flex-shrink:0"></div>
+        <div style="flex:1">
+          <div class="user-name">${escHtml(key)}</div>
+          ${u.description ? `<div class="user-desc">${escHtml(u.description)}</div>` : ''}
+        </div>
+        <button class="remove-btn" onclick="removeUser('${escAttr(key)}')" title="Remove">&times;</button>
       </div>
-      <button class="remove-btn" onclick="removeUser('${escAttr(key)}')" title="Remove">&times;</button>
+      <input
+        value="${escHtml(u.username || '')}"
+        placeholder="username@tenant.onmicrosoft.com"
+        title="Username saved in users.sample.json when you save the project"
+        style="font-size:11px;padding:4px 8px"
+        oninput="updateUserUsername('${escAttr(key)}', this.value)"
+      >
+      <div style="display:flex;align-items:flex-start;gap:5px;font-size:10px;color:var(--text-muted);line-height:1.4;padding:0 2px">
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0;margin-top:1px"><rect x="3" y="7" width="10" height="8" rx="1"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/></svg>
+        <span>Password stored in <strong>Windows Credential Manager</strong> via the app's Environment setup — not in any file.
+          <span class="user-pwd-tip" tabindex="0" title="When running via the local app, passwords are stored in Windows Credential Manager (or encrypted via DPAPI if keytar is unavailable). They are never written to users.json. The users.sample.json file only contains a placeholder for when you run Run-BCWorkflow.ps1 standalone outside the app." style="color:var(--primary);cursor:help;text-decoration:underline dotted">More info</span>
+        </span>
+      </div>
     </div>`;
   }).join('');
 }
@@ -1768,9 +1897,10 @@ function importWorkflow() {
           // It's a users file
           for (const [role, info] of Object.entries(data)) {
             if (!state.users[role]) {
-              addUser(role, info.description || '');
+              addUser(role, info.description || '', undefined, info.username || '');
             } else {
               state.users[role].description = info.description || state.users[role].description;
+              if (info.username) state.users[role].username = info.username;
             }
           }
           renderUsers();
@@ -1822,7 +1952,7 @@ function buildUsersJson() {
   const users = {};
   for (const [role, info] of Object.entries(state.users)) {
     users[role] = {
-      username: `${role}@yourtenant.onmicrosoft.com`,
+      username: info.username || `${role}@yourtenant.onmicrosoft.com`,
       password: 'your-password-here',
       description: info.description || '',
       mfa_seed: 'your-totp-seed-here'
@@ -1888,8 +2018,8 @@ function saveAsProject() {
   const issues = validate();
   if (issues.errors.length) { showValidationErrors(issues.errors); return; }
 
-  // Pre-fill name from workflow name
-  document.getElementById('save-project-name').value = state.workflow.name || '';
+  // Pre-fill name from current project or workflow name
+  document.getElementById('save-project-name').value = state.currentProject || state.workflow.name || '';
 
   // Build summary of what will be written
   const scriptCount = Object.keys(state.scripts).length;
@@ -1939,6 +2069,12 @@ async function confirmSaveProject() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Server error');
+
+    // Update current project context
+    state.currentProject = projectName;
+    document.getElementById('current-project-badge').style.display = 'flex';
+    document.getElementById('current-project-label').textContent = projectName;
+    document.getElementById('btn-save-project').classList.remove('hidden');
 
     closeSaveProject();
     toast(`Project saved → ${data.projectPath}`, 'success');
@@ -2072,22 +2208,236 @@ function validate() {
    ════════════════════════════════════════════════════════════════════ */
 
 function resetAll() {
-  if (!confirm('Clear everything and start fresh?')) return;
-  state = {
-    workflow: { name: '', description: '', bc_url: '', steps: [] },
-    users: {},
-    scripts: {},
-    appRegistrations: {},
-    selectedStepId: null,
-    nextColor: 0
+  if (!confirm('Clear everything and start fresh? You will return to project selection.')) return;
+  clearWorkflowState();
+  state.currentProject = null;
+  document.getElementById('current-project-badge').style.display = 'none';
+  document.getElementById('btn-save-project').classList.add('hidden');
+  document.getElementById('properties-panel').classList.add('hidden');
+  showProjectPicker();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   PROJECT PICKER
+   ════════════════════════════════════════════════════════════════════ */
+
+function showProjectPicker() {
+  document.getElementById('project-picker').classList.remove('hidden');
+  document.getElementById('project-name-form').classList.remove('visible');
+  loadProjects();
+}
+
+function closeProjectPicker() {
+  document.getElementById('project-picker').classList.add('hidden');
+}
+
+async function loadProjects() {
+  const grid = document.getElementById('project-grid');
+  grid.innerHTML = '<div class="project-picker-loading" style="grid-column:1/-1">Loading projects...</div>';
+
+  let projects = [];
+  const isServer = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+
+  if (isServer) {
+    try {
+      const res = await fetch('/api/projects');
+      if (res.ok) projects = await res.json();
+    } catch (e) {
+      projects = [];
+    }
+  }
+
+  grid.innerHTML = '';
+
+  // Render existing project cards
+  if (projects.length) {
+    for (const proj of projects) {
+      const card = document.createElement('div');
+      card.className = 'project-card';
+      card.innerHTML = `
+        <div class="project-title">${escHtml(proj.name)}</div>
+        ${proj.hasWorkflow
+          ? `<div class="project-has-workflow"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8l4 4 6-6"/></svg> workflow.json</div>`
+          : `<div class="project-no-workflow">No workflow yet</div>`}
+      `;
+      card.onclick = () => openProject(proj.name, proj.hasWorkflow);
+      grid.appendChild(card);
+    }
+  } else if (!isServer) {
+    const hint = document.createElement('div');
+    hint.style.cssText = 'grid-column:1/-1;color:var(--text-muted);font-size:13px;text-align:center;padding:16px 0';
+    hint.textContent = 'Running in standalone mode — existing projects cannot be listed. Create a new project below.';
+    grid.appendChild(hint);
+  }
+
+  // Always add the "New Project" card
+  const newCard = document.createElement('div');
+  newCard.className = 'project-card new-project';
+  newCard.innerHTML = `
+    <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    <div style="font-weight:600;margin-top:6px">New Project</div>
+    <div style="font-size:12px">Create a new project folder</div>
+  `;
+  newCard.onclick = () => {
+    document.getElementById('project-name-form').classList.add('visible');
+    document.getElementById('new-project-name').focus();
   };
-  loadMetaToForm();
+  grid.appendChild(newCard);
+}
+
+async function openProject(name, hasWorkflow) {
+  state.currentProject = name;
+
+  if (hasWorkflow) {
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(name)}/workflow`);
+      if (res.ok) {
+        const wf = await res.json();
+        applyLoadedWorkflow(wf);
+      }
+    } catch (e) {
+      toast(`Could not load workflow: ${e.message}`, 'error');
+    }
+
+    // Load usernames from users.sample.json (or users.json) if it exists
+    try {
+      const ures = await fetch(`/api/projects/${encodeURIComponent(name)}/users`);
+      if (ures.ok) {
+        const usersData = await ures.json();
+        for (const [role, info] of Object.entries(usersData)) {
+          if (state.users[role] && info.username) {
+            state.users[role].username = info.username;
+          }
+        }
+        renderUsers();
+      }
+    } catch { /* users file optional */ }
+
+    toast(`Loaded "${name}"`, 'success');
+  } else {
+    // Fresh start in this project
+    clearWorkflowState();
+  }
+
+  activateProject(name);
+}
+
+function confirmNewProject() {
+  const name = document.getElementById('new-project-name').value.trim();
+  if (!name) { toast('Enter a project name', 'error'); return; }
+  state.currentProject = name;
+  clearWorkflowState();
+  activateProject(name);
+}
+
+function activateProject(name) {
+  closeProjectPicker();
+  document.getElementById('current-project-badge').style.display = 'flex';
+  document.getElementById('current-project-label').textContent = name;
+  document.getElementById('btn-save-project').classList.remove('hidden');
+  // Pre-fill workflow name if empty
+  if (!state.workflow.name) {
+    state.workflow.name = name;
+    document.getElementById('wf-name').value = name;
+    document.getElementById('workflow-title-display').textContent = name;
+  }
+  renderCanvas();
   renderUsers();
   renderScripts();
   renderAppRegistrations();
-  renderCanvas();
-  document.getElementById('properties-panel').classList.add('hidden');
-  toast('Reset complete', 'info');
+}
+
+function clearWorkflowState() {
+  state.workflow = { name: '', description: '', bc_url: '', steps: [] };
+  state.users = {};
+  state.scripts = {};
+  state.appRegistrations = {};
+  state.selectedStepId = null;
+  state.nextColor = 0;
+  loadMetaToForm();
+}
+
+function applyLoadedWorkflow(wf) {
+  clearWorkflowState();
+  state.workflow.name = wf.name || '';
+  state.workflow.description = wf.description || '';
+  state.workflow.bc_url = wf.bc_url || '';
+  state.workflow.steps = (wf.steps || []).map(s => {
+    const step = {
+      id: s.id || '',
+      name: s.name || '',
+      user: s.user || '',
+      depends_on: s.depends_on || null
+    };
+    if (s.type === 'bc-api') {
+      step.type = 'bc-api';
+      step.method = s.method || 'GET';
+      step.endpoint = s.endpoint || '';
+      step.app_registration = s.app_registration || '';
+      step.body_template = s.body_template || {};
+      step.capture_response = s.capture_response || {};
+    } else {
+      step.script = s.script || '';
+      step.scripts = s.scripts || null;
+      step.capture = s.capture || {};
+      step.inject = s.inject || {};
+    }
+    return step;
+  });
+
+  // Auto-create user roles from steps
+  for (const step of state.workflow.steps) {
+    if (step.user && !state.users[step.user]) {
+      addUser(step.user, '');
+    }
+  }
+  loadMetaToForm();
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   Save directly to the current project folder
+   ──────────────────────────────────────────────────────────────────── */
+async function saveToCurrentProject() {
+  if (!state.currentProject) { saveAsProject(); return; }
+  const issues = validate();
+  if (issues.errors.length) { showValidationErrors(issues.errors); return; }
+
+  const btn = document.getElementById('btn-save-project');
+  const origText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '...Saving';
+
+  const isServer = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+
+  try {
+    if (isServer) {
+      // Try to save via /api/projects/scaffold (creates folder + files)
+      const wf      = buildWorkflowJson();
+      const users   = buildUsersJson();
+      const hasApi  = state.workflow.steps.some(s => s.type === 'bc-api');
+      const appRegs = hasApi ? buildAppRegsJson() : null;
+      const scripts = Object.entries(state.scripts)
+        .map(([filename, info]) => ({ name: filename, content: info.content || '' }))
+        .filter(s => s.content);
+
+      const res  = await fetch('/api/projects/scaffold', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectName: state.currentProject, workflow: wf, users, appRegistrations: appRegs, scripts }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Server error');
+      toast(`Saved to ${data.projectPath || state.currentProject}`, 'success');
+    } else {
+      // Standalone: fall back to download
+      exportWorkflow();
+    }
+  } catch (e) {
+    toast(`Save failed: ${e.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origText;
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -2107,13 +2457,10 @@ function toast(msg, type = 'info') {
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   INIT
+   INIT  — Show project picker on load
    ════════════════════════════════════════════════════════════════════ */
 
-renderCanvas();
-renderUsers();
-renderScripts();
-renderAppRegistrations();
+showProjectPicker();
 
 /* ════════════════════════════════════════════════════════════════════
    PARENT APP BRIDGE (postMessage)
@@ -2173,28 +2520,18 @@ window.addEventListener('message', function(evt) {
   if (msg.type === 'load-workflow') {
     const wf = msg.workflow;
     if (!wf || !wf.steps) return;
-    state.workflow.name        = wf.name || '';
-    state.workflow.description = wf.description || '';
-    state.workflow.bc_url      = wf.bc_url || '';
-    state.workflow.steps       = (wf.steps || []).map(function(s, i) {
-      return Object.assign({
-        capture: {}, inject: {}, depends_on: '',
-        color: state.workflow.steps[i] ? state.workflow.steps[i].color : (ROLE_COLORS[i % ROLE_COLORS.length])
-      }, s);
-    });
 
-    // Rebuild users map from steps
-    const rolesSeen = {};
-    state.workflow.steps.forEach(function(s) {
-      if (s.user && s.user !== 'system' && !rolesSeen[s.user]) {
-        rolesSeen[s.user] = state.users[s.user] || { description: '' };
-      }
-    });
-    state.users = rolesSeen;
+    applyLoadedWorkflow(wf);
 
-    renderCanvas();
-    renderUsers();
-    renderScripts();
+    if (msg.project) {
+      state.currentProject = msg.project;
+      activateProject(msg.project);
+    } else {
+      renderCanvas();
+      renderUsers();
+      renderScripts();
+    }
+
     toast('Workflow loaded from project', 'success');
   }
 });

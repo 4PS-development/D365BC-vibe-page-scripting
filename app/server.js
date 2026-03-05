@@ -122,10 +122,20 @@ app.get('/api/setup/status', async (req, res) => {
   let psVersion = null, psOk = false;
   try { psVersion = await runPs('$PSVersionTable.PSVersion.Major'); psOk = true; } catch {}
 
+  const chromiumPaths = [
+    path.join(process.env.LOCALAPPDATA || '', 'ms-playwright'),
+    path.join(process.env.USERPROFILE  || '', 'AppData', 'Local', 'ms-playwright'),
+  ];
+  const chromiumInstalled = chromiumPaths.some(p => {
+    if (!fs.existsSync(p)) return false;
+    return fs.readdirSync(p).some(d => d.startsWith('chromium'));
+  });
+
   res.json({
     nodeVersion: process.version,
     nodeOk: major >= 18,
     bcReplayInstalled: fs.existsSync(path.join(ROOT, 'bc-replay', 'node_modules')),
+    chromiumInstalled,
     psVersion: psVersion ? `PowerShell ${psVersion}` : '(not found)',
     psOk,
     credBackend: keytar ? 'Windows Credential Manager' : 'DPAPI (encrypted local files)',
@@ -135,6 +145,18 @@ app.get('/api/setup/status', async (req, res) => {
 app.post('/api/setup/install', (req, res) => {
   res.json({ ok: true });
   const proc = spawn('npm', ['install'], {
+    cwd: path.join(ROOT, 'bc-replay'),
+    shell: true,
+    windowsHide: true,
+  });
+  proc.stdout.on('data', d => broadcast({ type: 'setup-output', data: d.toString() }));
+  proc.stderr.on('data', d => broadcast({ type: 'setup-output', data: d.toString() }));
+  proc.on('close', code => broadcast({ type: 'setup-done', code }));
+});
+
+app.post('/api/setup/install-playwright', (req, res) => {
+  res.json({ ok: true });
+  const proc = spawn('npx', ['playwright', 'install', 'chromium'], {
     cwd: path.join(ROOT, 'bc-replay'),
     shell: true,
     windowsHide: true,
@@ -333,6 +355,20 @@ app.get('/api/projects/:name/workflow', (req, res) => {
   const wfPath = path.join(ROOT, 'page-scripting', req.params.name, 'workflow.json');
   if (!fs.existsSync(wfPath)) return res.status(404).json({ error: 'workflow.json not found' });
   res.json(JSON.parse(fs.readFileSync(wfPath, 'utf8')));
+});
+
+app.get('/api/projects/:name/users', (req, res) => {
+  const projDir = path.join(ROOT, 'page-scripting', req.params.name);
+  // Prefer the real users.json over the sample
+  const candidates = ['users.json', 'users.sample.json'];
+  for (const fname of candidates) {
+    const p = path.join(projDir, fname);
+    if (fs.existsSync(p)) {
+      try { return res.json(JSON.parse(fs.readFileSync(p, 'utf8'))); }
+      catch { break; }
+    }
+  }
+  res.status(404).json({ error: 'No users file found' });
 });
 
 app.post('/api/projects/:name/workflow', (req, res) => {
@@ -765,86 +801,319 @@ app.get('/api/results/pdf', (req, res) => {
 
   try {
     const data = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
-    const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
 
+    // Load captured values from workflow-state.json if present
+    let capturedState = {};
+    const statePath = path.join(ROOT, 'page-scripting', relDir, 'workflow-state.json');
+    if (fs.existsSync(statePath)) {
+      try { capturedState = JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch {}
+    }
+
+    // Parse results.xml for failure messages
+    function parseStepFailures(reportDir) {
+      if (!reportDir) return [];
+      const xmlPath = path.join(reportDir, 'results.xml');
+      if (!fs.existsSync(xmlPath)) return [];
+      const xml = fs.readFileSync(xmlPath, 'utf8');
+      const failures = [];
+      for (const m of xml.matchAll(/<failure[^>]*>([\s\S]*?)<\/failure>/g)) {
+        failures.push(m[1].trim().substring(0, 600));
+      }
+      return failures;
+    }
+
+    const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="report-${relDir.replace(/\//g, '-')}.pdf"`);
     doc.pipe(res);
 
-    // Title
-    doc.font('Helvetica-Bold').fontSize(20).text('4PS Test Automation Report', { align: 'center' });
-    doc.moveDown(0.5);
-    doc.font('Helvetica').fontSize(12).fillColor('#666').text(data.workflow_name || relDir, { align: 'center' });
-    doc.moveDown(1.5);
+    // ── Constants ────────────────────────────────────────────────────────
+    const L = 50, W = 495;
+    const C_BRAND  = '#e4002b';
+    const C_PASS   = '#1a7a3f';
+    const C_FAIL   = '#c0392b';
+    const C_SKIP   = '#666666';
+    const C_DARK   = '#1a1a1a';
+    const C_MID    = '#444444';
+    const C_LIGHT  = '#888888';
+    const C_RULE   = '#dddddd';
+    const C_HEADBG = '#1a1a1a';
 
-    // Summary box
-    doc.fillColor('#000').font('Helvetica-Bold').fontSize(14).text('Summary');
-    doc.moveDown(0.3);
-    const overall = data.overall || 'UNKNOWN';
-    doc.font('Helvetica').fontSize(11);
-    doc.text(`Result: ${overall}`, { continued: false });
-    doc.text(`Start: ${data.start_time ? new Date(data.start_time).toLocaleString() : 'N/A'}`);
-    doc.text(`End: ${data.end_time ? new Date(data.end_time).toLocaleString() : 'N/A'}`);
-    doc.text(`Duration: ${data.duration_s ?? 'N/A'}s`);
-    doc.text(`Total Steps: ${data.total_steps ?? 0}  |  Passed: ${data.passed ?? 0}  |  Failed: ${data.failed ?? 0}  |  Skipped: ${data.skipped ?? 0}`);
-    doc.moveDown(1.5);
+    const overall      = data.overall || 'UNKNOWN';
+    const overallColor = overall === 'PASSED' ? C_PASS : overall === 'FAILED' ? C_FAIL : C_SKIP;
+    const total        = Math.max(data.total_steps || 1, 1);
 
-    // Steps table
-    if (Array.isArray(data.steps) && data.steps.length) {
-      doc.font('Helvetica-Bold').fontSize(14).text('Steps');
+    function hr(y) {
+      doc.moveTo(L, y).lineTo(L + W, y).strokeColor(C_RULE).lineWidth(0.5).stroke();
+    }
+
+    function sectionTitle(text) {
+      doc.moveDown(0.8);
+      doc.font('Helvetica-Bold').fontSize(11).fillColor(C_DARK).text(text, L);
       doc.moveDown(0.4);
+    }
+
+    function twoColRow(la, va, lb, vb, y) {
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C_LIGHT).text(la, L + 4,   y, { width: 65 });
+      doc.font('Helvetica')     .fontSize(8.5).fillColor(C_DARK) .text(va, L + 70,  y, { width: W / 2 - 80 });
+      if (lb !== undefined) {
+        doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C_LIGHT).text(lb, L + W / 2 + 10, y, { width: 65 });
+        doc.font('Helvetica')     .fontSize(8.5).fillColor(C_DARK) .text(vb, L + W / 2 + 76, y, { width: W / 2 - 80 });
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // PAGE 1 — SUMMARY
+    // ══════════════════════════════════════════════════════════════════════
+
+    // Brand bar
+    doc.rect(L, 50, W, 4).fill(C_BRAND);
+
+    // Header
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(C_BRAND)
+      .text('4PS TEST AUTOMATION', L, 66, { width: W, align: 'right' });
+    doc.font('Helvetica-Bold').fontSize(22).fillColor(C_DARK).text('Test Execution Report', L, 64);
+    doc.font('Helvetica').fontSize(12).fillColor(C_MID).text(data.workflow_name || relDir, L, 90);
+    doc.font('Helvetica').fontSize(8.5).fillColor(C_LIGHT)
+      .text('Generated: ' + new Date().toLocaleString('en-GB'), L, 106);
+    doc.y = 120;
+
+    hr(doc.y); doc.moveDown(0.8);
+
+    // Overall status pill
+    const pillY = doc.y;
+    doc.roundedRect(L, pillY, 170, 48, 6).fill(overallColor);
+    doc.font('Helvetica-Bold').fontSize(24).fillColor('#fff')
+      .text(overall, L, pillY + 11, { width: 170, align: 'center' });
+    doc.y = pillY + 64;
+
+    // Run metadata (2-col)
+    const mdRows = [
+      ['Start',    data.start_time ? new Date(data.start_time).toLocaleString('en-GB') : 'N/A',
+       'End',      data.end_time   ? new Date(data.end_time).toLocaleString('en-GB')   : 'N/A'],
+      ['Duration', (data.duration_s != null ? data.duration_s + ' s' : 'N/A'),
+       'Total Steps', String(data.total_steps ?? 0)],
+    ];
+    for (const row of mdRows) {
+      twoColRow(row[0], row[1], row[2], row[3], doc.y);
+      doc.y += 16;
+    }
+
+    doc.moveDown(0.6); hr(doc.y); doc.moveDown(0.8);
+
+    // Result breakdown
+    sectionTitle('Result Breakdown');
+    const barStats = [
+      { label: 'Passed',  value: data.passed  ?? 0, color: C_PASS },
+      { label: 'Failed',  value: data.failed  ?? 0, color: C_FAIL },
+      { label: 'Skipped', value: data.skipped ?? 0, color: C_SKIP },
+    ];
+    const barY = doc.y, barH = 18;
+    let bx = L;
+    for (const s of barStats) {
+      const sw = Math.max(Math.round((s.value / total) * W), s.value > 0 ? 6 : 0);
+      if (sw > 0) { doc.rect(bx, barY, sw, barH).fill(s.color); bx += sw; }
+    }
+    // Remaining fill
+    if (bx < L + W) doc.rect(bx, barY, L + W - bx, barH).fill('#f0f0f0');
+    doc.y = barY + barH + 8;
+
+    // Legend
+    barStats.forEach((s, i) => {
+      const lx = L + i * 120;
+      doc.rect(lx, doc.y + 2, 10, 10).fill(s.color);
+      doc.font('Helvetica').fontSize(9).fillColor(C_DARK)
+        .text(`${s.label}: ${s.value}`, lx + 14, doc.y, { width: 100 });
+    });
+    doc.y += 18;
+
+    // Captured values
+    const capturedEntries = Object.entries(capturedState);
+    if (capturedEntries.length) {
+      doc.moveDown(0.6); hr(doc.y);
+      sectionTitle('Captured Values');
+      for (const [stepId, vals] of capturedEntries) {
+        const stepName = data.steps?.find(s => s.id === stepId)?.name || stepId;
+        doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C_MID).text(stepName, L + 4);
+        doc.moveDown(0.2);
+        for (const [k, v] of Object.entries(vals)) {
+          doc.font('Courier').fontSize(8.5).fillColor(C_DARK).text(`  ${k}:  ${v}`, L + 16);
+        }
+        doc.moveDown(0.4);
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // PAGE 2 — STEPS OVERVIEW TABLE
+    // ══════════════════════════════════════════════════════════════════════
+
+    doc.addPage();
+    doc.rect(L, 50, W, 4).fill(C_BRAND);
+    doc.font('Helvetica-Bold').fontSize(14).fillColor(C_DARK).text('Steps Overview', L, 66);
+    doc.font('Helvetica').fontSize(8.5).fillColor(C_LIGHT)
+      .text(data.workflow_name || '', L, 69, { width: W, align: 'right' });
+    doc.y = 92;
+
+    if (Array.isArray(data.steps) && data.steps.length) {
+      const cx = [L, L+80, L+265, L+350, L+425];
+      const cw = [76, 181,  80,    70,    70];
 
       // Table header
-      const colX = [50, 130, 310, 395, 470];
-      const y = doc.y;
-      doc.rect(50, y, 500, 18).fill('#2a2a2a');
-      doc.fillColor('#fff').font('Helvetica-Bold').fontSize(9);
-      doc.text('STEP ID', colX[0] + 4, y + 4, { width: 76 });
-      doc.text('NAME', colX[1] + 4, y + 4, { width: 176 });
-      doc.text('USER', colX[2] + 4, y + 4, { width: 80 });
-      doc.text('STATUS', colX[3] + 4, y + 4, { width: 70 });
-      doc.text('DURATION', colX[4] + 4, y + 4, { width: 70 });
-      doc.y = y + 20;
-      doc.fillColor('#000');
+      const thY = doc.y;
+      doc.rect(L, thY, W, 18).fill(C_HEADBG);
+      doc.fillColor('#fff').font('Helvetica-Bold').fontSize(8);
+      ['STEP ID','NAME','USER','STATUS','DURATION'].forEach((h, i) => {
+        doc.text(h, cx[i]+3, thY+5, { width: cw[i] });
+      });
+      doc.y = thY + 22;
+      doc.fillColor(C_DARK);
 
+      let rowBg = true;
       for (const step of data.steps) {
-        if (doc.y > 750) { doc.addPage(); doc.y = 50; }
-        const sy = doc.y;
-        const status = step.status || 'unknown';
-        doc.font('Courier').fontSize(9).text(step.id || '', colX[0] + 4, sy + 3, { width: 76 });
-        doc.font('Helvetica').fontSize(9).text(step.name || '', colX[1] + 4, sy + 3, { width: 176 });
-        doc.text(step.user || '', colX[2] + 4, sy + 3, { width: 80 });
-        // Status with color
-        const statusColor = status === 'passed' ? '#1a7a3f' : status === 'failed' ? '#c0392b' : '#666';
-        doc.fillColor(statusColor).text(status.toUpperCase(), colX[3] + 4, sy + 3, { width: 70 });
-        doc.fillColor('#000').text(step.duration_s != null ? step.duration_s + 's' : '-', colX[4] + 4, sy + 3, { width: 70 });
-        doc.y = sy + 18;
-
-        // Draw line
-        doc.moveTo(50, doc.y).lineTo(550, doc.y).strokeColor('#e0e0e0').stroke();
-        doc.y += 2;
+        if (doc.y > 765) {
+          doc.addPage();
+          doc.rect(L, 50, W, 4).fill(C_BRAND);
+          doc.y = 64;
+        }
+        const sy   = doc.y;
+        const st   = step.status || 'unknown';
+        const sc   = st === 'passed' ? C_PASS : st === 'failed' ? C_FAIL : C_SKIP;
+        doc.rect(L, sy, W, 17).fill(rowBg ? '#f8f8f8' : '#ffffff');
+        doc.moveTo(L, sy).lineTo(L+W, sy).strokeColor(C_RULE).lineWidth(0.3).stroke();
+        doc.font('Courier')   .fontSize(8).fillColor(C_MID) .text(step.id   ||'', cx[0]+3, sy+4, { width: cw[0] });
+        doc.font('Helvetica') .fontSize(8).fillColor(C_DARK).text(step.name ||'', cx[1]+3, sy+4, { width: cw[1] });
+        doc.font('Helvetica') .fontSize(8).fillColor(C_MID) .text(step.user ||'', cx[2]+3, sy+4, { width: cw[2] });
+        doc.font('Helvetica-Bold').fontSize(8).fillColor(sc).text(st.toUpperCase(), cx[3]+3, sy+4, { width: cw[3] });
+        doc.font('Helvetica') .fontSize(8).fillColor(C_DARK)
+          .text(step.duration_s != null ? step.duration_s+'s' : '-', cx[4]+3, sy+4, { width: cw[4] });
+        doc.y = sy + 19;
+        rowBg = !rowBg;
 
         // Sub-results
         if (step.sub_results?.length) {
           for (const sub of step.sub_results) {
-            if (doc.y > 750) { doc.addPage(); doc.y = 50; }
+            if (doc.y > 765) { doc.addPage(); doc.y = 64; }
             const ssy = doc.y;
-            const subStatus = sub.status || 'unknown';
-            doc.font('Helvetica').fontSize(8).fillColor('#666');
-            doc.text('  ' + (sub.label || sub.script || ''), colX[1] + 14, ssy + 2, { width: 160 });
-            const sc = subStatus === 'passed' ? '#1a7a3f' : subStatus === 'failed' ? '#c0392b' : '#666';
-            doc.fillColor(sc).text(subStatus.toUpperCase(), colX[3] + 4, ssy + 2, { width: 70 });
-            doc.fillColor('#000').text(sub.duration_s != null ? sub.duration_s + 's' : '-', colX[4] + 4, ssy + 2, { width: 70 });
-            doc.y = ssy + 14;
+            const sst  = sub.status || 'unknown';
+            const ssc  = sst === 'passed' ? C_PASS : sst === 'failed' ? C_FAIL : C_SKIP;
+            doc.rect(L, ssy, W, 14).fill('#f0f0f0');
+            doc.font('Helvetica').fontSize(7.5).fillColor(C_LIGHT)
+              .text('  ↳ ' + (sub.label || sub.script || ''), cx[1]+10, ssy+3, { width: 160 });
+            doc.font('Helvetica-Bold').fontSize(7.5).fillColor(ssc)
+              .text(sst.toUpperCase(), cx[3]+3, ssy+3, { width: cw[3] });
+            doc.font('Helvetica').fontSize(7.5).fillColor(C_DARK)
+              .text(sub.duration_s != null ? sub.duration_s+'s' : '-', cx[4]+3, ssy+3, { width: cw[4] });
+            doc.y = ssy + 16;
           }
         }
       }
     }
 
-    // Footer
-    doc.moveDown(2);
-    doc.font('Helvetica').fontSize(8).fillColor('#999')
-      .text(`Generated by 4PS Test Automation on ${new Date().toLocaleString()}`, 50, doc.y, { align: 'center', width: 500 });
+    // ══════════════════════════════════════════════════════════════════════
+    // APPENDIX — STEP DETAILS
+    // ══════════════════════════════════════════════════════════════════════
+
+    if (Array.isArray(data.steps) && data.steps.length) {
+      doc.addPage();
+      doc.rect(L, 50, W, 4).fill(C_BRAND);
+      doc.font('Helvetica-Bold').fontSize(16).fillColor(C_DARK).text('Appendix — Step Details', L, 64);
+      doc.font('Helvetica').fontSize(8.5).fillColor(C_LIGHT)
+        .text(data.workflow_name || '', L, 68, { width: W, align: 'right' });
+      doc.y = 96;
+
+      for (let si = 0; si < data.steps.length; si++) {
+        const step      = data.steps[si];
+        const st        = step.status || 'unknown';
+        const sc        = st === 'passed' ? C_PASS : st === 'failed' ? C_FAIL : C_SKIP;
+        const failures  = parseStepFailures(step.report_dir);
+        const captured  = capturedState[step.id] ? Object.entries(capturedState[step.id]) : [];
+
+        if (doc.y > 690) {
+          doc.addPage();
+          doc.rect(L, 50, W, 4).fill(C_BRAND);
+          doc.y = 64;
+        }
+
+        // Step header bar
+        const shY = doc.y;
+        doc.rect(L, shY, W, 26).fill(sc);
+        doc.font('Helvetica-Bold').fontSize(11).fillColor('#fff')
+          .text(`Step ${si + 1}: ${step.name || step.id}`, L + 8, shY + 8, { width: W - 110 });
+        doc.font('Helvetica-Bold').fontSize(9).fillColor('rgba(255,255,255,0.85)')
+          .text(st.toUpperCase(), L + W - 70, shY + 10, { width: 64, align: 'right' });
+        doc.y = shY + 32;
+
+        // Metadata (2-col)
+        const mdPairs = [
+          ['ID',        step.id || '-',         'User',       step.user || '-'],
+          ['Start',     step.start_time  ? new Date(step.start_time).toLocaleString('en-GB')  : '-',
+           'End',       step.end_time    ? new Date(step.end_time).toLocaleString('en-GB')    : '-'],
+          ['Duration',  step.duration_s != null ? step.duration_s + ' s' : '-',
+           'Exit Code', String(step.exit_code ?? '-')],
+        ];
+        for (const row of mdPairs) {
+          twoColRow(row[0], row[1], row[2], row[3], doc.y);
+          doc.y += 14;
+        }
+        doc.moveDown(0.3);
+
+        // Captured values for this step
+        if (captured.length) {
+          doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C_MID).text('Captured Values', L + 4);
+          doc.moveDown(0.2);
+          for (const [k, v] of captured) {
+            doc.font('Courier').fontSize(8.5).fillColor(C_DARK).text(`  ${k}: ${v}`, L + 16);
+          }
+          doc.moveDown(0.4);
+        }
+
+        // Sub-results
+        if (step.sub_results?.length) {
+          doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C_MID).text('Sub-Results', L + 4);
+          doc.moveDown(0.2);
+          for (const sub of step.sub_results) {
+            if (doc.y > 770) { doc.addPage(); doc.y = 64; }
+            const sst  = sub.status || 'unknown';
+            const ssc  = sst === 'passed' ? C_PASS : sst === 'failed' ? C_FAIL : C_SKIP;
+            const dur  = sub.duration_s != null ? `  (${sub.duration_s}s)` : '';
+            doc.font('Helvetica').fontSize(8.5).fillColor(C_DARK)
+              .text(`  • ${sub.label || sub.script || ''}${dur}`, L + 16, doc.y, { width: W - 110, continued: true });
+            doc.font('Helvetica-Bold').fontSize(8.5).fillColor(ssc)
+              .text(`  ${sst.toUpperCase()}`, { continued: false });
+          }
+          doc.moveDown(0.4);
+        }
+
+        // Failure details
+        if (failures.length) {
+          doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C_FAIL).text('Failure Details', L + 4);
+          doc.moveDown(0.2);
+          for (const f of failures) {
+            if (doc.y > 750) { doc.addPage(); doc.y = 64; }
+            doc.font('Courier').fontSize(7.5).fillColor(C_FAIL).text(f, L + 16, doc.y, { width: W - 24 });
+            doc.moveDown(0.3);
+          }
+        }
+
+        doc.moveDown(0.4);
+        hr(doc.y);
+        doc.moveDown(0.8);
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // PAGE NUMBERS
+    // ══════════════════════════════════════════════════════════════════════
+
+    const numPages = doc.bufferedPageRange().count;
+    for (let i = 0; i < numPages; i++) {
+      doc.switchToPage(i);
+      doc.font('Helvetica').fontSize(7).fillColor(C_LIGHT)
+        .text(
+          `4PS Test Automation  •  ${data.workflow_name || ''}  •  Page ${i + 1} of ${numPages}`,
+          L, 823, { width: W, align: 'center' }
+        );
+    }
 
     doc.end();
   } catch (e) {
@@ -853,11 +1122,48 @@ app.get('/api/results/pdf', (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// START
+// ROUTES — Dependency Health Check
 // ══════════════════════════════════════════════════════════════════════════════
 
-const PORT = process.env.PORT || 3333;
-server.listen(PORT, '127.0.0.1', () => {
+function checkDeps() {
+  const bcReplayMods = path.join(ROOT, 'bc-replay', 'node_modules');
+  const bcReplayPkg  = path.join(bcReplayMods, '@microsoft', 'bc-replay', 'package.json');
+  const chromiumPaths = [
+    path.join(process.env.LOCALAPPDATA || '', 'ms-playwright'),
+    path.join(process.env.USERPROFILE  || '', 'AppData', 'Local', 'ms-playwright'),
+  ];
+
+  const bcReplayInstalled = fs.existsSync(bcReplayMods);
+  const bcReplayVersion   = bcReplayInstalled && fs.existsSync(bcReplayPkg)
+    ? (() => { try { return JSON.parse(fs.readFileSync(bcReplayPkg, 'utf8')).version; } catch { return null; } })()
+    : null;
+  const chromiumInstalled = chromiumPaths.some(p => {
+    if (!fs.existsSync(p)) return false;
+    return fs.readdirSync(p).some(d => d.startsWith('chromium'));
+  });
+
+  return {
+    bcReplayInstalled,
+    bcReplayVersion,
+    chromiumInstalled,
+    allOk: bcReplayInstalled && chromiumInstalled,
+  };
+}
+
+app.get('/api/health/deps', (_req, res) => {
+  res.json(checkDeps());
+});
+
+
+  // Warn about missing deps at startup
+  const deps = checkDeps();
+  if (!deps.allOk) {
+    console.log('');
+    if (!deps.bcReplayInstalled)
+      console.warn('  [WARN] bc-replay dependencies not installed. Run: cd bc-replay && npm install');
+    if (!deps.chromiumInstalled)
+      console.warn('  [WARN] Playwright Chromium not found. Run: cd bc-replay && npx playwright install chromium');
+  }
   const url = `http://localhost:${PORT}`;
   console.log('');
   console.log('  4PS Test Automation');
