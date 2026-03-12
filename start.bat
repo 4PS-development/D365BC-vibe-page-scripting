@@ -73,7 +73,18 @@ echo  The app will open in your browser automatically.
 echo  Press Ctrl+C to stop.
 echo.
 
+:: ── Kill any existing process on port 3333 ───────────────────────────────────
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3333 " ^| findstr "LISTENING"') do (
+    echo  [INFO] Stopping existing server on port 3333 (PID %%a)...
+    taskkill /PID %%a /F >nul 2>nul
+)
+
 node "%~dp0app\server.js"
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Server failed to start. See error above.
+    pause
+)
 goto :eof
 
 :: ── Subroutine: ensure winget ─────────────────────────────────────────────────────────

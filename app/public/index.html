@@ -92,6 +92,33 @@
         </div>
       </div>
 
+      <!-- Export credentials to project modal -->
+      <div id="modal-export-creds" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-export-creds-title">
+        <div class="modal-backdrop"></div>
+        <div class="modal-box">
+          <h2 id="modal-export-creds-title">Export credentials to project</h2>
+          <p style="font-size:13px;color:var(--text-muted)">
+            Writes a <code>users.json</code> containing usernames, passwords and MFA seeds into the selected project folder.
+            Use this to share a working environment with a colleague.
+          </p>
+          <p style="font-size:12px;color:var(--warning);margin-top:8px">
+            &#9888; The exported <code>users.json</code> contains credentials in plain text. Delete it after seeding on the target machine. It is gitignored by default.
+          </p>
+          <div style="margin-top:16px">
+            <label>Environment: <strong id="export-env-name"></strong></label>
+          </div>
+          <div style="margin-top:12px">
+            <label>Target project
+              <select id="export-project" class="input"></select>
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" id="btn-cancel-export-creds">Cancel</button>
+            <button class="btn btn-primary" id="btn-confirm-export-creds">Export</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Add / Edit modal -->
       <div id="modal-env" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-env-title">
         <div class="modal-backdrop"></div>

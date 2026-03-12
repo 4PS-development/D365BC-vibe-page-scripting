@@ -1,0 +1,14 @@
+{
+  "Acquisiteur": {
+    "username": "proks@vangelder.com",
+    "password": "your-password-here",
+    "description": "",
+    "mfa_seed": "your-totp-seed-here"
+  },
+  "VG Project Controller": {
+    "username": "proks@vangelder.com",
+    "password": "your-password-here",
+    "description": "",
+    "mfa_seed": "your-totp-seed-here"
+  }
+}

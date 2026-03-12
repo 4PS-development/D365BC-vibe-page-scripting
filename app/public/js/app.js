@@ -173,6 +173,7 @@ function renderEnvList() {
       <div class="env-card-header">
         <span class="env-card-name">${esc(env.name)}</span>
         <div class="env-card-actions">
+          <button class="btn btn-secondary btn-sm" data-export="${esc(env.name)}" title="Export credentials to a project folder">Export</button>
           <button class="btn btn-secondary btn-sm" data-edit="${esc(env.name)}">Edit</button>
           <button class="btn btn-danger btn-sm" data-del="${esc(env.name)}">Delete</button>
         </div>
@@ -181,6 +182,7 @@ function renderEnvList() {
       <div class="env-card-roles">${chips}${appRegBadge}</div>`;
     card.querySelector('[data-del]').addEventListener('click', () => deleteEnv(env.name));
     card.querySelector('[data-edit]').addEventListener('click', () => openEnvModal(env.name));
+    card.querySelector('[data-export]').addEventListener('click', () => openExportCredsModal(env.name));
     grid.appendChild(card);
   });
 }
@@ -371,6 +373,48 @@ document.getElementById('btn-confirm-seed').addEventListener('click', async () =
 
   if (errors.length) alert('Some projects failed:\n' + errors.join('\n'));
   await loadEnvironments();
+});
+
+// ── Export credentials to project ─────────────────────────────────────────────
+async function openExportCredsModal(envName) {
+  document.getElementById('export-env-name').textContent = envName;
+  const projects = await GET('/projects').catch(() => []);
+  const sel = document.getElementById('export-project');
+  sel.innerHTML = '';
+  if (!projects.length) {
+    sel.innerHTML = '<option value="">No projects found</option>';
+  } else {
+    projects.forEach(p => sel.appendChild(new Option(p.name, p.name)));
+  }
+  document.getElementById('modal-export-creds').classList.remove('hidden');
+}
+
+document.getElementById('btn-cancel-export-creds').addEventListener('click', () => {
+  document.getElementById('modal-export-creds').classList.add('hidden');
+});
+document.querySelector('#modal-export-creds .modal-backdrop').addEventListener('click', () => {
+  document.getElementById('modal-export-creds').classList.add('hidden');
+});
+
+document.getElementById('btn-confirm-export-creds').addEventListener('click', async () => {
+  const envName = document.getElementById('export-env-name').textContent;
+  const project = document.getElementById('export-project').value;
+  if (!project) { alert('Select a project.'); return; }
+
+  const btn = document.getElementById('btn-confirm-export-creds');
+  btn.disabled = true; btn.textContent = 'Exporting\u2026';
+
+  try {
+    const r = await POST(`/environments/${encodeURIComponent(envName)}/export`, { project });
+    if (r.ok) {
+      alert(`Credentials exported to ${r.path}\n\nRoles: ${r.roles.join(', ')}\n\nYour colleague can now open the app and click \"Seed from project files\" to import them.`);
+    }
+  } catch (e) {
+    alert('Export failed: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Export';
+    document.getElementById('modal-export-creds').classList.add('hidden');
+  }
 });
 
 function openMfaHelp() {
