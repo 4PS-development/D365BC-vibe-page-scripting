@@ -1,6 +1,6 @@
 # Research: Mocking the IBIS Calculation Integration
 
-> **Date:** 2025-03-12  
+> **Date:** 2026-03-12  
 > **Epic:** [FPS-8992 — Phase 2 IBIS API Integration](https://4ps.atlassian.net/browse/FPS-8992)  
 > **Related Jira:** [FPS-13330](https://4ps.atlassian.net/browse/FPS-13330), [FPS-13331](https://4ps.atlassian.net/browse/FPS-13331)  
 > **Scope Documents:** DR-788 (Phase 2), DR-972 (Infra elements), DR-973 (Construction elements)
@@ -16,12 +16,14 @@
 5. [Data Model Analysis](#5-data-model-analysis)
 6. [Status Workflow & State Machine](#6-status-workflow--state-machine)
 7. [IBIS-Specific Domain Mapping](#7-ibis-specific-domain-mapping)
+   - [7.4 Budget Import — XMLport Mapping](#74-budget-import--xmlport-mapping)
 8. [Mock Scope & Strategy](#8-mock-scope--strategy)
 9. [Test Scenario Specifications — Happy Flow](#9-test-scenario-specifications--happy-flow)
 10. [Sample Data Requirements](#10-sample-data-requirements)
 11. [Open Questions](#11-open-questions)
 12. [Implementation Roadmap](#12-implementation-roadmap)
 13. [References](#13-references)
+14. [Verification Status](#14-verification-status)
 
 ---
 
@@ -141,7 +143,7 @@ All endpoints use: `APIPublisher = '4ps'`, `APIGroup = 'calculation'`
 ### 4.1 Base URL Pattern
 
 ```
-https://{bchost}/{instance}/api/4ps/calculation/{version}/companies({companyId})/
+https://api.businesscentral.dynamics.com/v2.0/{tenantId}/{environmentName}/api/4ps/calculation/{version}/companies({companyId})/
 ```
 
 ### 4.2 Core Endpoints (Phase 1 + 2)
@@ -168,8 +170,8 @@ https://{bchost}/{instance}/api/4ps/calculation/{version}/companies({companyId})
 | 13 | `rentalRates` | v1.1 | Rental Rate | Equipment rental pricing | [CalcApiRentalRate4PS.Page.al] |
 | 14 | `tradeItems` | v1.1 | Trade Item | Trade item catalog | [CalcApiTradeItem4PS.Page.al] |
 | 15 | `priceHistoryTradeItems` | v1.1 | Price History Trade Item | Historical pricing | [CalcApiPriceHistTradeItem4PS.Page.al] |
-| 16 | `etimVendorContactManagements` | v1.1 | Etim Vendor Cntct. Mgt. | Vendor contact lookup | [CalcApiEtimVendorCntMgt4PS.Page.al] |
-| 17 | `etimVendorLocalManagements` | v1.1 | Etim Vendor Local Mgt. | Local vendor management | [CalcApiEtimVendorLocalMgt4PS.Page.al] |
+| 16 | `etimVendorCentralMgts` | v1.1 | Etim Vendor Central Mgt. | Vendor central management | [CalcApiEtimVendorCntMgt4PS.Page.al] |
+| 17 | `etimVendorLocalMgts` | v1.1 | Etim Vendor Local Mgt. | Local vendor management | [CalcApiEtimVendorLocalMgt4PS.Page.al] |
 | 18 | `projectAuthorizations` | v1.1 | Project Authorization | Project permissions | [CalcApiProjectAuth4PS.Page.al] |
 | 19 | `projectPrincipals` | v1.1 | Project Principal | Client/principal data | [CalcApiProjectPrinc4PS.Page.al] |
 | 20 | `projectResponsiblePersons` | v1.1 | Proj. Resp. Pers. | Responsible person per project | [CalcApiProjRespPers4PS.Page.al] |
@@ -307,7 +309,7 @@ stateDiagram-v2
 | Value | Description | Trigger |
 |-------|-------------|---------|
 | `Submitted` | Initial state after IBIS POST | OnInsert trigger |
-| `Fetched` | Content retrieved from Azure | `GetCaculationFile()` codeunit |
+| `Fetched` | Content retrieved from Azure | `GetCaculationFile()` codeunit *(sic — typo is in AL source)* |
 | `Checked` | Validation passed (no errors) | `ImportExternalBudget(true)` |
 | `ErrorsFound` | Validation found issues | `ImportExternalBudget(true)` |
 | `Processed` | Imported into project budget | `ImportExternalBudget(false)` |
@@ -370,6 +372,31 @@ The integration handles two distinct IBIS calculation formats:
 - Includes: all budget lines, quantities, rates, RAW texts for quotes, element codes
 - **On update:** IBIS re-sends the *complete* budget (not deltas), with a new version number
 - **In 4PS:** New versions are *appended*, not overwritten. Old budget lines must be manually deleted if replacement is desired.
+
+### 7.4 Budget Import — XMLport Mapping
+
+Once BC has fetched the budget file content (via `GetCaculationFile()` in **codeunit CalcApiExt Rest Management 4PS (11020440)**), the actual parsing and import into project budget lines is handled by XMLports in the **4PS Estimate Budget Interface W1** app (`Fps.EstimateBudgetInterface.Budget` namespace).
+
+The orchestrating codeunit is **`Import External Budget`** (`ImportExternalBudget.Codeunit.al`), which handles element determination, cost object validation, and budget line creation. It delegates the actual XML parsing to the appropriate XMLport based on the detected `CalculationType`.
+
+#### TRAD XMLports (Construction / Bouw)
+
+| XMLport ID | Name | Format | File |
+|---|---|---|---|
+| 11330315 | `Import TRAD-Budget (CSV)` | CSV/XML | `ImportTRADBudgetCSV.XmlPort.al` |
+| *(TBD)* | `Import TRAD-Budget (TXT 6.20)` | TXT 6.20 | `ImportTRADBudgetTXT620.XmlPort.al` |
+| *(TBD)* | `Import TRAD-Budget (TXT 5.00)` | TXT 5.00 (legacy) | `ImportTRADBudgetTXT500.XmlPort.al` |
+
+#### KPD XMLports (Infrastructure / Infra)
+
+| XMLport ID | Name | Format | File |
+|---|---|---|---|
+| 11330313 | `Import KPD-Budget Construct` | XML (Construction) | `ImportKPDBudgetConstruct.XmlPort.al` |
+| *(TBD)* | `Import KPD-Budget GWW` | XML (Infra/GWW) | `ImportKPDBudgetGWW.XmlPort.al` |
+
+> **Note:** The exact routing from `CalculationType` to XMLport is determined inside the `Import External Budget` codeunit. For the IBIS integration, TRAD budgets most likely route through XMLport 11330315 and KPD budgets route through either 11330313 (Construct) or `Import KPD-Budget GWW` (Infra/GWW), depending on the project type. The IDs marked *(TBD)* were not visible in the AL code snippets available — they should be verified against the full source.
+
+**Source:** AL code in `4PS Estimate Budget Interface W1/app/src/xmlport/` and `4PS Estimate Budget Interface W1/app/src/codeunit/ImportExternalBudget.Codeunit.al`
 
 ---
 
@@ -829,6 +856,77 @@ gantt
 | BC OData API structure | [Microsoft Learn: Business Central API](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/api-reference/v2.0/) |
 | BC Custom API pages | [Microsoft Learn: Developing a Custom API](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-develop-custom-api) |
 | PowerShell HttpListener | [Microsoft .NET: HttpListener Class](https://learn.microsoft.com/en-us/dotnet/api/system.net.httplistener) |
+
+---
+
+## 14. Verification Status
+
+> **Reviewed:** 2026-03-12  
+> **Method:** Cross-referenced against AL codebase (Moltbook aldocs), Microsoft Learn, and the `bc-replay/Run-BCWorkflow.ps1` pipeline implementation.
+
+### 14.1 Verified Claims
+
+| Section | Claim | Source |
+|---------|-------|--------|
+| 4.2 | `APIPublisher = '4ps'`, `APIGroup = 'calculation'` for all Calculation API endpoints | AL code: pages 11130966, 11330643, 11130984, 11130976 |
+| 4.2 | Page IDs: calculations (11130966), calculationsExtended (11130967), baseElements (11330643), projectElements (11130984), customProperties (11130968) | AL code |
+| 4.2 | `calculationsExtended`: InsertAllowed=true, ModifyAllowed=true, DeleteAllowed=false (GET/POST/PATCH) | AL code: page 11130967 |
+| 4.2 | `baseElements` source = `"Base Element"`, Editable=false (GET only) | AL code: page 11330643 |
+| 4.2 | `projectElements` source = `"Project Element"`, Editable=false (GET only) | AL code: page 11130984 |
+| 4.3 | `employeeCostPrices` exists in Calculation API group with EntitySetName `employeeCostPrices` | AL code: page 11130973 |
+| 4.3 | `extensionContracts` EntitySetName confirmed, source = `"Extension Contract"` | AL code: page 11130976 |
+| 5.1 | Table `Calc. API Calculation 4PS` (11125235), PK = `Calculation Id` (Guid) + `Calculation Version` (Code[50]) | AL table + key definition |
+| 5.1 | Fields: `Calculation Content` (Blob, field 120), `Calculation Id` (Guid, field 10), `Calculation Version` (Code[50], field 20) | AL table definition |
+| 5.2 | `customProperties` page (11130968) uses `SourceTableTemporary = true` | AL code: page 11130968 |
+| 5.2 | `customProperties` entity fields: `companyId`, `jobId`, `extensionContract`, `adjustment` | AL code: page 11130968 |
+| 6 | Status enum (11125235): Submitted(0), Fetched(1), Checked(2), ErrorsFound(3), Processed(4), Completed(5), Rejected(6) | AL enum definition |
+| 6 | Enum is `Extensible = true` | AL enum definition |
+| 7.1 | Type enum (11125236): Unknown(0), Trad(1), Kpd(2) | AL enum definition |
+| 7.1 | Language enum (11125237): Unknown(0), Xml(1), Json(2) | AL enum definition |
+| 7.2 | 4PS KB: "Coding consistency between external estimating tools and 4PS elements is critical" | Moltbook: confirmed article at `4BP/pages/1827405977/Elements` |
+| 8.2 | Workflow pipeline uses `workflow.json` + `Run-BCWorkflow.ps1` with `bc-api` and `bc-replay` step types | `bc-replay/Run-BCWorkflow.ps1` source code |
+| 8.2 | `bc-api` steps use `app-registrations.json` with `client_id`, `client_secret`, `tenant_id`, `environment_name`, `company_id` | `page-scripting/PO Approval Workflow/app-registrations.sample.json` |
+| 9.5 | `capture_response` with JSONPath, `depends_on`, `inject` with `{capture.stepId.varName}` syntax | `Run-BCWorkflow.ps1` implementation |
+| 12.3 | OAuth2 token endpoint: `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token` with scope `https://api.businesscentral.dynamics.com/.default` | `Run-BCWorkflow.ps1` lines ~397-406 |
+| 13.4 | BC custom API URL pattern: `api/{publisher}/{group}/{version}/companies({companyId})/{endpoint}` | [Microsoft Learn: API endpoint structure](https://learn.microsoft.com/dynamics365/business-central/dev-itpro/webservices/api-endpoint-structure) |
+| 13.4 | `System.Net.HttpListener` is a valid .NET class | [Microsoft Learn: HttpListener](https://learn.microsoft.com/dotnet/api/system.net.httplistener) |
+
+### 14.2 Unverifiable Claims
+
+The following claims reference internal or private sources that could not be independently verified. They are not necessarily incorrect — they just require access to internal systems or tribal knowledge to confirm.
+
+| Section | Claim | Why Unverifiable |
+|---------|-------|------------------|
+| 2.1 | Stakeholder: Roderik von Maltzahn (Brink/IBIS) as integration partner | Internal project records |
+| 2.1 | Customer names: GMB, Van Gelder, Padelbouw, Roosdom Tijhuis | Internal customer data |
+| 2.1 | Target markets: NL construction & infrastructure, DE/BE construction | Internal business strategy |
+| 2.3 | Azure API Management (APIM) layer with `Ocp-Apim-Subscription-Key` header | Architecture decision docs (DR-788) |
+| 2.3 | Three solution options evaluated for URL generation and client ID/secret management | Internal kick-off meeting notes (2021-2022) |
+| 6.1 | Email sent via mail template #450 on calculation submission | Internal BC configuration; not in public AL code |
+| 6.1 | Rejection only allowed on latest version via `IsLatest()` check | Cannot verify without reading full codeunit source |
+| 7.1 | TRAD XML root element = `<TradbegrotingIbis>`, KPD root element = `<IbisVoorInfra>` | Internal `SetCalculationType()` logic in table codeunit |
+| 7.2 | Infra mapping: Sorteercode Ibis Infra = Cost Carrier (Kostendrager) | Internal IBIS-to-4PS mapping documentation |
+| 7.2 | Infra mapping: Vrije code 1 & 2 = base/project elements | Internal IBIS-to-4PS mapping documentation |
+| 7.2 | Bouw mapping: Bewakingscodes = Cost Carrier, Calculatiecode/bestekcode = elements | Internal IBIS-to-4PS mapping documentation |
+| 7.3 | JSON support added later; BC auto-converts JSON to XML before import | Internal codeunit logic |
+| 7.3 | On update, IBIS re-sends complete budget (not deltas) with new version number | Integration contract between Brink and 4PS |
+| 7.3 | Old budget lines must be manually deleted if replacement is desired | Internal BC process behaviour |
+| 4.2 | `calculationsExtended` API version is `v1.0` (distinct from W1 endpoints at v1.1) | AL code snippet did not include `APIVersion`; plausible given separate NL extension app, but not confirmed |
+| 4.2 | `calculations` endpoint supports POST only (no GET/PATCH/DELETE) | AL snippet shows `InsertAllowed = true` but defaults for other CRUD not visible in returned fragment |
+| 13.1 | Existing mock at `4PS Calculation API Extended/test/Mock-CalculationApi.ps1` | Internal repo; not present in this workspace |
+| Scope | DR-788 (Phase 2 scope), DR-972 (Infra elements), DR-973 (Bouw elements) | Internal Confluence documents |
+| Scope | Jira tickets FPS-8992, FPS-13330, FPS-13331 content and status | Internal Jira (URLs confirmed to exist, content not verified) |
+
+### 14.3 Corrections Applied During Review
+
+| Issue | Section | Before | After | Source |
+|-------|---------|--------|-------|--------|
+| Wrong ETIM entity set names | 4.3 (#16) | `etimVendorContactManagements` | `etimVendorCentralMgts` | AL code: page 11130974 (`EntitySetName = 'etimVendorCentralMgts'`) |
+| Wrong ETIM entity set names | 4.3 (#17) | `etimVendorLocalManagements` | `etimVendorLocalMgts` | AL code: page 11130975 (`EntitySetName = 'etimVendorLocalMgts'`) |
+| Base URL pattern | 4.1 | `https://{bchost}/{instance}/api/...` | `https://api.businesscentral.dynamics.com/v2.0/{tenantId}/{environmentName}/api/...` | [Microsoft Learn](https://learn.microsoft.com/dynamics365/business-central/dev-itpro/webservices/api-endpoint-structure) |
+| Method name — reverted | 6 | `GetCaculationFile()` | `GetCaculationFile()` *(sic)* | Confirmed: typo exists in actual AL source (`CalcApiExt Rest Management 4PS` codeunit). Not a document error — kept as-is with annotation. |
+| XMLport mapping added | 7.4 | *(missing)* | New section documenting XMLport routing for TRAD/KPD budget import | AL code: `4PS Estimate Budget Interface W1` app |
+| Document date | Header | `2025-03-12` | `2026-03-12` | Current date |
 
 ---
 
