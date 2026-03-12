@@ -1115,7 +1115,8 @@ let state = {
   selectedStepId: null,
   nextColor: 0,
   currentProject: null,  // name of the active project folder (null = no project selected)
-  environment: null      // selected environment name (null = none)
+  environment: null,     // selected environment name (null = none)
+  companies: []          // company names available from the selected environment
 };
 
 /* API Component templates */
@@ -1265,6 +1266,9 @@ async function onEnvironmentChange() {
       document.getElementById('wf-url').value = env.url;
       state.workflow.bc_url = env.url;
     }
+
+    // Store available companies
+    state.companies = env.companies || [];
 
     // Populate roles
     if (env.roles && env.roles.length) {
@@ -1425,6 +1429,7 @@ function addStep(afterIndex) {
     id: `step-${idx}`,
     name: `Step ${idx}`,
     user: Object.keys(state.users)[0] || '',
+    company: null,
     scripts: [],
     depends_on: null,
     capture: {},
@@ -1607,10 +1612,12 @@ function renderCanvas() {
       const scriptLabel = stepScripts.length ? stepScripts.map(s => s.replace('./scripts/', '')).join(' → ') : 'No script assigned';
       const captureCount = Object.keys(step.capture || {}).length;
       const injectCount = Object.keys(step.inject || {}).length;
+      const companyBadge = step.company ? `<span class="step-badge" style="background:#e0f2fe;color:#0369a1" title="Company: ${escAttr(step.company)}">&#127970; ${escHtml(step.company)}</span>` : '';
       cardBodyHtml = `
         <div class="step-card-body">
           <div class="step-script">${escHtml(scriptLabel)}</div>
           <div class="step-badges">
+            ${companyBadge}
             ${captureCount ? `<span class="step-badge capture">&#8593; ${captureCount} capture${captureCount > 1 ? 's' : ''}</span>` : ''}
             ${injectCount ? `<span class="step-badge inject">&#8595; ${injectCount} inject${injectCount > 1 ? 's' : ''}</span>` : ''}
           </div>
@@ -2135,6 +2142,10 @@ function renderPropertiesReplay(step) {
   // Determine if "+ Add" should be shown (when captures exist from earlier steps)
   const canAddInject = availableCaptures.length > 0;
 
+  const companyOptions = state.companies.map(c =>
+    `<option value="${escAttr(c)}" ${step.company === c ? 'selected' : ''}>${escHtml(c)}</option>`
+  ).join('');
+
   panel.innerHTML = `
     <div class="field-group">
       <label>Step ID</label>
@@ -2150,6 +2161,14 @@ function renderPropertiesReplay(step) {
         <option value="">-- select role --</option>
         ${userOptions}
       </select>
+    </div>
+    <div class="field-group">
+      <label>Company <small style="font-weight:400;color:var(--text-muted)">— optional, per step</small></label>
+      <select onchange="updateStepField('${escAttr(step.id)}', 'company', this.value || null)">
+        <option value="">-- default (from BC URL) --</option>
+        ${companyOptions}
+      </select>
+      ${!state.companies.length ? '<span class="text-sm text-muted">No companies configured. Add them in the Environment settings.</span>' : ''}
     </div>
     <div class="field-group">
       <label class="flex justify-between items-center">
@@ -2548,6 +2567,7 @@ function buildWorkflowJson() {
         if (Object.keys(cleanInject).length)  step.inject  = cleanInject;
       }
       if (s.depends_on) step.depends_on = s.depends_on;
+      if (s.company) step.company = s.company;
       return step;
     })
   };
@@ -3003,6 +3023,7 @@ function applyLoadedWorkflow(wf) {
       id: s.id || '',
       name: s.name || '',
       user: s.user || '',
+      company: s.company || null,
       depends_on: s.depends_on || null
     };
     if (s.type === 'bc-api') {
@@ -3140,6 +3161,7 @@ window.addEventListener('message', function(evt) {
           if (Object.keys(s.inject || {}).length) step.inject = s.inject;
         }
         if (s.depends_on) step.depends_on = s.depends_on;
+        if (s.company) step.company = s.company;
         return step;
       })
     };

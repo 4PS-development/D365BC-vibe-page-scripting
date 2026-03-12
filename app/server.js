@@ -196,6 +196,7 @@ app.get('/api/environments/:name', async (req, res) => {
     res.json({
       name: env.name,
       url: env.url,
+      companies: env.companies || [],
       roles,
       appRegistration: {
         clientId:     appRegClientId || '',
@@ -212,7 +213,7 @@ app.get('/api/environments/:name', async (req, res) => {
 
 app.post('/api/environments', async (req, res) => {
   try {
-    const { name, url, roles = [], appRegistration } = req.body;
+    const { name, url, roles = [], appRegistration, companies = [] } = req.body;
     if (!name || !url) return res.status(400).json({ error: 'name and url are required' });
 
     for (const r of roles) {
@@ -234,6 +235,7 @@ app.post('/api/environments', async (req, res) => {
     envs.push({
       name,
       url,
+      companies: companies.filter(c => typeof c === 'string' && c.trim()).map(c => c.trim()),
       roles: roles.map(r => ({ role: r.role, username: r.username, hasMfa: !!r.mfaSeed })),
       hasAppRegistration: !!(appRegistration?.clientId),
     });

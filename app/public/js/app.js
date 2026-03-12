@@ -169,6 +169,9 @@ function renderEnvList() {
     const appRegBadge = env.hasAppRegistration
       ? '<span class="role-chip has-cred" style="border-color:var(--primary);color:var(--primary)">App Reg</span>'
       : '';
+    const companiesBadge = (env.companies && env.companies.length)
+      ? `<span class="role-chip has-cred" style="border-color:#0369a1;color:#0369a1">${env.companies.length} compan${env.companies.length === 1 ? 'y' : 'ies'}</span>`
+      : '';
     card.innerHTML = `
       <div class="env-card-header">
         <span class="env-card-name">${esc(env.name)}</span>
@@ -179,7 +182,7 @@ function renderEnvList() {
         </div>
       </div>
       <div class="env-card-url">${esc(env.url)}</div>
-      <div class="env-card-roles">${chips}${appRegBadge}</div>`;
+      <div class="env-card-roles">${chips}${companiesBadge}${appRegBadge}</div>`;
     card.querySelector('[data-del]').addEventListener('click', () => deleteEnv(env.name));
     card.querySelector('[data-edit]').addEventListener('click', () => openEnvModal(env.name));
     card.querySelector('[data-export]').addEventListener('click', () => openExportCredsModal(env.name));
@@ -196,6 +199,7 @@ async function deleteEnv(name) {
 // Add / Edit environment modal
 let modalRoleCount = 0;
 let editingEnvName = null; // null = create mode, string = edit mode
+let modalCompanies = [];   // companies list for the current environment being edited
 
 document.getElementById('btn-new-env').addEventListener('click', () => openEnvModal());
 document.getElementById('btn-seed-env').addEventListener('click', () => openSeedModal());
@@ -203,6 +207,41 @@ document.getElementById('btn-cancel-env').addEventListener('click', closeEnvModa
 document.querySelector('#modal-env .modal-backdrop').addEventListener('click', closeEnvModal);
 document.getElementById('btn-add-role').addEventListener('click', addRoleRow);
 document.getElementById('btn-save-env').addEventListener('click', saveEnv);
+
+// Companies management
+document.getElementById('btn-add-company').addEventListener('click', addCompanyFromInput);
+document.getElementById('env-company-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); addCompanyFromInput(); }
+});
+
+function addCompanyFromInput() {
+  const input = document.getElementById('env-company-input');
+  const name = input.value.trim();
+  if (!name) return;
+  if (modalCompanies.includes(name)) { input.value = ''; return; }
+  modalCompanies.push(name);
+  input.value = '';
+  renderCompanies();
+}
+
+function removeCompany(index) {
+  modalCompanies.splice(index, 1);
+  renderCompanies();
+}
+
+function renderCompanies() {
+  const list = document.getElementById('env-companies-list');
+  if (!modalCompanies.length) {
+    list.innerHTML = '<p style="font-size:12px;color:var(--text-muted);margin:4px 0">No companies added yet.</p>';
+    return;
+  }
+  list.innerHTML = modalCompanies.map((c, i) =>
+    `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:4px;background:var(--surface)">
+      <span style="flex:1;font-size:13px">${esc(c)}</span>
+      <button class="btn btn-secondary btn-sm" onclick="removeCompany(${i})" style="padding:2px 8px;font-size:11px;color:var(--danger)">&times;</button>
+    </div>`
+  ).join('');
+}
 
 // Auto-extract tenant ID from BC URL
 document.getElementById('env-url').addEventListener('input', function () {
@@ -247,6 +286,7 @@ document.getElementById('btn-fetch-companies').addEventListener('click', async (
 async function openEnvModal(existingName) {
   modalRoleCount = 0;
   editingEnvName = existingName || null;
+  modalCompanies = [];
   document.getElementById('env-name').value = '';
   document.getElementById('env-url').value = '';
   document.getElementById('env-roles-list').innerHTML = '';
@@ -254,6 +294,7 @@ async function openEnvModal(existingName) {
   document.getElementById('env-appreg-secret').value = '';
   document.getElementById('env-appreg-tenantid').value = '';
   document.getElementById('env-appreg-company').innerHTML = '<option value="">-- fetch companies first --</option>';
+  renderCompanies();
 
   if (existingName) {
     document.getElementById('modal-env-title').textContent = 'Edit Environment';
@@ -264,6 +305,10 @@ async function openEnvModal(existingName) {
     try {
       const env = await GET(`/environments/${encodeURIComponent(existingName)}`);
       document.getElementById('env-url').value = env.url || '';
+
+      // Pre-fill companies
+      modalCompanies = env.companies || [];
+      renderCompanies();
 
       // Pre-fill roles
       for (const r of (env.roles || [])) {
@@ -482,7 +527,7 @@ async function saveEnv() {
   const btn = document.getElementById('btn-save-env');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    await POST('/environments', { name, url, roles, appRegistration });
+    await POST('/environments', { name, url, roles, appRegistration, companies: modalCompanies });
     closeEnvModal();
     await loadEnvironments();
   } catch (e) {

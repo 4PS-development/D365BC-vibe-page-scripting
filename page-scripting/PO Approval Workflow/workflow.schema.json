@@ -61,6 +61,11 @@
           "description": "The role key that maps to a user entry in users.json. For bc-api steps, use 'system' (or any role key) to indicate the swim lane position.",
           "examples": ["purchaser", "approver", "system"]
         },
+        "company": {
+          "type": "string",
+          "description": "Optional BC company name for this step. When set, '?company=<value>' is appended to the bc_url for this step only. Useful when different steps must run in different companies within the same environment.",
+          "examples": ["CRONUS International Ltd.", "My Company"]
+        },
         "type": {
           "type": "string",
           "enum": ["bc-replay", "bc-api"],

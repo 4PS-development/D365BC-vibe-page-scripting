@@ -68,6 +68,20 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# ── Invoke-Npx helper (handles paths with spaces on Windows) ────────────────
+# PowerShell's argument passing to .cmd files (like npx.cmd) breaks when
+# arguments contain spaces. This helper builds a properly quoted command line
+# and invokes it via cmd /c to ensure all arguments survive intact.
+function Invoke-Npx {
+    param([string[]]$Arguments)
+    $quotedArgs = $Arguments | ForEach-Object {
+        if ($_ -match '\s') { "`"$_`"" } else { $_ }
+    }
+    $cmdLine = "npx $($quotedArgs -join ' ')"
+    cmd /c $cmdLine
+    return $LASTEXITCODE
+}
+
 # ── Import modules ──────────────────────────────────────────────────────────
 $scriptRoot = $PSScriptRoot
 . (Join-Path $scriptRoot "Invoke-YamlPreprocess.ps1")
@@ -522,12 +536,13 @@ foreach ($step in $workflow.steps) {
 
     Write-Host "──────────────────────────────────────────────────────" -ForegroundColor DarkGray
     Write-Host "  Step $stepIndex/$($workflow.steps.Count): $($step.name)" -ForegroundColor Cyan
+    $companySuffix = if ($step.company) { "  |  Company: $($step.company)" } else { '' }
     if ($step.type -eq 'bc-api') {
         Write-Host "  Type: BC API  |  Method: $($step.method)  |  Reg: $($step.app_registration)" -ForegroundColor Gray
     } elseif ($isMultiScript) {
-        Write-Host "  User: $($step.user)  |  Scripts: $($scriptsList.Count)" -ForegroundColor Gray
+        Write-Host "  User: $($step.user)  |  Scripts: $($scriptsList.Count)$companySuffix" -ForegroundColor Gray
     } else {
-        Write-Host "  User: $($step.user)  |  Script: $($scriptsList[0])" -ForegroundColor Gray
+        Write-Host "  User: $($step.user)  |  Script: $($scriptsList[0])$companySuffix" -ForegroundColor Gray
     }
     Write-Host ""
 
@@ -636,8 +651,8 @@ foreach ($step in $workflow.steps) {
             $scriptResultDir = $stepResultDir
         }
 
-        # Resolve script path
-        $scriptPath = Join-Path $workflowFolder $scriptRelPath
+        # Resolve script path (normalize to remove .\  segments)
+        $scriptPath = [System.IO.Path]::GetFullPath((Join-Path $workflowFolder $scriptRelPath))
         if (-not (Test-Path $scriptPath)) {
             Write-Error "Script not found: $scriptPath"
             exit 1
@@ -686,10 +701,17 @@ foreach ($step in $workflow.steps) {
         }
 
         # Build npx replay command
+        # Determine the effective BC URL — append ?company= if the step specifies one
+        $effectiveBcUrl = $workflow.bc_url
+        if ($step.company) {
+            $encodedCompany = [uri]::EscapeDataString($step.company)
+            $effectiveBcUrl = "$($workflow.bc_url)?company=$encodedCompany"
+            Write-Host "  Company  : $($step.company)" -ForegroundColor DarkGray
+        }
         $replayArgs = @(
             "replay"
             $processedScript
-            "-StartAddress", $workflow.bc_url
+            "-StartAddress", $effectiveBcUrl
             "-Authentication", "AAD"
             "-UserNameKey", "BC_WF_USERNAME"
             "-PasswordKey", "BC_WF_PASSWORD"
@@ -715,8 +737,7 @@ foreach ($step in $workflow.steps) {
             $bcReplayDir = $PSScriptRoot
             Push-Location $bcReplayDir
             try {
-                & npx @replayArgs
-                $exitCode = $LASTEXITCODE
+                $exitCode = Invoke-Npx -Arguments $replayArgs
             } catch {
                 Write-Warning "  bc-replay execution error: $_"
                 $exitCode = 1

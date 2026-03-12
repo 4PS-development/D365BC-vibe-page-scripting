@@ -137,6 +137,16 @@
             <button class="btn btn-secondary mt-sm" id="btn-add-role">+ Add Role</button>
           </div>
 
+          <div id="env-companies-container">
+            <h3>Companies <small>(available for workflow steps)</small></h3>
+            <p style="font-size:12px;color:var(--text-muted);margin:0 0 8px">Add the BC company names that are available in this environment. Steps in the Workflow Builder can then target a specific company.</p>
+            <div id="env-companies-list"></div>
+            <div style="display:flex;gap:6px;margin-top:8px">
+              <input id="env-company-input" type="text" class="input" placeholder="e.g. CRONUS International Ltd." style="flex:1" />
+              <button class="btn btn-secondary btn-sm" id="btn-add-company" type="button">+ Add</button>
+            </div>
+          </div>
+
           <div id="env-appreg-container">
             <h3>App Registration <small>(Entra ID — for BC API access)</small></h3>
             <div class="form-grid">
