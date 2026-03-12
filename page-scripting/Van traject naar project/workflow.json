@@ -1,0 +1,23 @@
+{
+  "name": "Van traject naar project",
+  "description": "",
+  "bc_url": "https://4psconstruct.bc.dynamics.com/d163e125-e357-46fa-885a-ca549208b546/VG-Test",
+  "steps": [
+    {
+      "id": "step-1",
+      "name": "Step 1",
+      "user": "Acquisiteur",
+      "script": "./scripts/Van aanmaken traject tot en met overdracht van project.yml",
+      "capture": {
+        "try_out_successor_project_no": "Try-out Successor - Project No."
+      }
+    },
+    {
+      "id": "step-2",
+      "name": "Step 2",
+      "user": "VG Project Controller",
+      "script": "./scripts/Project aanmaken (projectkaart inrichten).yml",
+      "depends_on": "step-1"
+    }
+  ]
+}

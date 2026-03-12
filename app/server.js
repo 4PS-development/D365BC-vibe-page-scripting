@@ -244,6 +244,50 @@ app.post('/api/environments', async (req, res) => {
   }
 });
 
+// Export environment credentials to a project's users.json
+app.post('/api/environments/:name/export', async (req, res) => {
+  try {
+    const { name } = req.params;
+    const { project } = req.body;
+    if (!project) return res.status(400).json({ error: 'project is required' });
+
+    const env = readEnvs().find(e => e.name === name);
+    if (!env) return res.status(404).json({ error: 'Environment not found' });
+
+    const projectDir = path.join(ROOT, 'page-scripting', project);
+    if (!fs.existsSync(projectDir)) return res.status(404).json({ error: 'Project folder not found' });
+
+    // Read workflow.json for bc_url (optional — include if present)
+    let bcUrl = env.url || '';
+    const wfPath = path.join(projectDir, 'workflow.json');
+    if (fs.existsSync(wfPath)) {
+      try {
+        const wf = JSON.parse(fs.readFileSync(wfPath, 'utf8'));
+        if (wf.bc_url) bcUrl = wf.bc_url;
+      } catch { /* use env url */ }
+    }
+
+    // Build users object from credential store
+    const users = {};
+    for (const r of env.roles || []) {
+      const username = await readCred(`${name}:${r.role}:username`);
+      const password = await readCred(`${name}:${r.role}:password`);
+      const mfaSeed  = await readCred(`${name}:${r.role}:mfa`);
+      users[r.role] = {};
+      if (username) users[r.role].username = username;
+      if (password) users[r.role].password = password;
+      if (mfaSeed)  users[r.role].mfa_seed = mfaSeed;
+    }
+
+    const usersPath = path.join(projectDir, 'users.json');
+    fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
+
+    res.json({ ok: true, path: path.relative(ROOT, usersPath).replace(/\\/g, '/'), roles: Object.keys(users) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.delete('/api/environments/:name', async (req, res) => {
   try {
     const { name } = req.params;
@@ -344,7 +388,14 @@ app.get('/api/projects/:name/scripts', (req, res) => {
     if (!fs.existsSync(dir)) return [];
     return fs.readdirSync(dir)
       .filter(f => /\.ya?ml$/i.test(f))
-      .map(f => ({ name: f, relativePath: path.relative(projectDir, path.join(dir, f)).replace(/\\/g, '/') }));
+      .map(f => {
+        const fullPath = path.join(dir, f);
+        return {
+          name: f,
+          relativePath: path.relative(projectDir, fullPath).replace(/\\/g, '/'),
+          content: fs.readFileSync(fullPath, 'utf8')
+        };
+      });
   };
   res.json([
     ...collect(path.join(projectDir, 'scripts')),

@@ -75,6 +75,43 @@ main { flex: 1; display: flex; overflow: hidden; }
 }
 .sidebar-section:last-child { border-bottom: none; }
 
+/* ── Help Accordion (sidebar) ────────────────────────────────────────── */
+.help-acc-item { border-bottom: 1px solid var(--border); }
+.help-acc-item:last-child { border-bottom: none; }
+.help-acc-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 0; cursor: pointer; user-select: none;
+  font-size: 12px; font-weight: 600; color: var(--text);
+}
+.help-acc-header:hover { color: var(--primary); }
+.help-acc-header .help-acc-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+.help-acc-header .help-acc-chevron {
+  margin-left: auto; color: var(--text-light); font-size: 10px;
+  transition: transform 0.2s;
+}
+.help-acc-item.open .help-acc-chevron { transform: rotate(180deg); }
+.help-acc-body {
+  display: none; padding: 0 0 10px 26px;
+  font-size: 12px; color: var(--text); line-height: 1.7;
+}
+.help-acc-item.open .help-acc-body { display: block; }
+.help-acc-body ul { padding-left: 14px; margin: 4px 0; }
+.help-acc-body li { margin-bottom: 2px; }
+.help-acc-body code {
+  background: var(--bg); border: 1px solid var(--border);
+  padding: 0 4px; border-radius: 3px; font-size: 11px; font-family: monospace;
+}
+.help-acc-body .help-tip {
+  margin-top: 6px; padding: 6px 8px;
+  background: #f0fdf4; border-left: 3px solid var(--success);
+  border-radius: 0 4px 4px 0; font-size: 11px; color: #166534;
+}
+.help-acc-body .help-warn {
+  margin-top: 6px; padding: 6px 8px;
+  background: var(--warning-light); border-left: 3px solid var(--warning);
+  border-radius: 0 4px 4px 0; font-size: 11px; color: #92400e;
+}
+
 /* ── Form Fields ───────────────────────────────────────────────────── */
 label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; color: var(--text-muted); }
 input, select, textarea {
@@ -275,6 +312,8 @@ textarea { resize: vertical; min-height: 50px; }
 .kv-table th { text-align: left; font-weight: 500; color: var(--text-muted); padding: 4px 6px; font-size: 11px; }
 .kv-table td { padding: 3px 6px; }
 .kv-table input { font-size: 12px; padding: 4px 6px; }
+.kv-table select { font-size: 12px; padding: 4px 6px; width: 100%; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); }
+.kv-table select:focus { border-color: var(--border-focus); outline: none; }
 .kv-table .remove-row { cursor: pointer; color: var(--text-light); text-align: center; }
 .kv-table .remove-row:hover { color: var(--danger); }
 .add-row-btn { font-size: 11px; color: var(--primary); cursor: pointer; margin-top: 4px; display: inline-block; font-weight: 600; }
@@ -523,6 +562,11 @@ textarea { resize: vertical; min-height: 50px; }
       Save
     </button>
     <button onclick="resetAll()" title="Start fresh" style="color:#ff6b6b;">Reset</button>
+    <button onclick="showHelp()" title="Help" style="color:#5bb;
+      background:rgba(255,255,255,0.07);border-color:rgba(255,255,255,0.15)">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><path d="M8 11v-1.5M8 7.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3"/></svg>
+      Help
+    </button>
   </div>
 </header>
 
@@ -604,7 +648,22 @@ textarea { resize: vertical; min-height: 50px; }
       <div id="app-reg-list"></div>
       <p class="text-sm text-muted mt-2" id="app-reg-empty">Import app-registrations.json to configure API credentials.</p>
     </div>
-  </div>
+
+    <!-- Help nav item -->
+    <div class="sidebar-section" id="sidebar-help" style="padding:0">
+      <button onclick="showHelp()" style="
+        width:100%; display:flex; align-items:center; gap:8px;
+        padding:12px 16px; background:none; border:none; border-radius:0;
+        text-align:left; cursor:pointer;
+        font-size:11px; text-transform:uppercase; letter-spacing:0.06em;
+        color:#666; font-weight:600; transition:background 0.15s;
+      " onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><path d="M8 11v-1.5M8 7.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3"/></svg>
+        Tips &amp; Tricks
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-left:auto;color:var(--text-light)"><path d="M6 4l4 4-4 4"/></svg>
+      </button>
+    </div>
+  </div><!-- /sidebar -->
 
   <!-- ── Canvas ────────────────────────────────────────────────────── -->
   <div class="canvas" id="canvas">
@@ -630,6 +689,354 @@ textarea { resize: vertical; min-height: 50px; }
 
 <!-- Toast container -->
 <div class="toast-container" id="toast-container"></div>
+
+<!-- ── Help / User Manual Modal ────────────────────────────────────── -->
+<div class="help-modal-overlay hidden" id="help-overlay" onclick="if(event.target===this)closeHelp()">
+  <div class="help-modal">
+
+    <!-- Nav sidebar -->
+    <div class="help-nav">
+      <div style="padding:14px 16px 4px;display:flex;align-items:center;gap:8px">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--primary)" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><path d="M8 11v-1.5M8 7.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3"/></svg>
+        <span style="color:#fff;font-size:13px;font-weight:600">User Manual</span>
+        <button onclick="closeHelp()" style="margin-left:auto;background:none;border:none;color:#666;font-size:18px;cursor:pointer;line-height:1;padding:0" title="Close">&times;</button>
+      </div>
+      <hr class="help-nav-divider" style="margin-top:12px">
+      <div class="help-nav-title" style="margin-top:8px">Getting Started</div>
+      <a onclick="showHelpSection('intro')" class="active" id="help-nav-intro">
+        <span class="help-nav-icon">&#128218;</span> Overview
+      </a>
+      <a onclick="showHelpSection('quickstart')" id="help-nav-quickstart">
+        <span class="help-nav-icon">&#9889;</span> Quick Start
+      </a>
+      <hr class="help-nav-divider">
+      <div class="help-nav-title">The Builder</div>
+      <a onclick="showHelpSection('workflow-settings')" id="help-nav-workflow-settings">
+        <span class="help-nav-icon">&#9881;</span> Workflow Settings
+      </a>
+      <a onclick="showHelpSection('user-roles')" id="help-nav-user-roles">
+        <span class="help-nav-icon">&#128100;</span> User Roles
+      </a>
+      <a onclick="showHelpSection('scripts')" id="help-nav-scripts">
+        <span class="help-nav-icon">&#128196;</span> Script Library
+      </a>
+      <a onclick="showHelpSection('steps')" id="help-nav-steps">
+        <span class="help-nav-icon">&#9654;</span> Workflow Steps
+      </a>
+      <a onclick="showHelpSection('capture-inject')" id="help-nav-capture-inject">
+        <span class="help-nav-icon">&#128257;</span> Captures &amp; Injects
+      </a>
+      <hr class="help-nav-divider">
+      <div class="help-nav-title">Advanced</div>
+      <a onclick="showHelpSection('api-steps')" id="help-nav-api-steps">
+        <span class="help-nav-icon">&#9889;</span> API Steps
+      </a>
+      <a onclick="showHelpSection('app-regs')" id="help-nav-app-regs">
+        <span class="help-nav-icon">&#128273;</span> App Registrations
+      </a>
+      <hr class="help-nav-divider">
+      <div class="help-nav-title">Output</div>
+      <a onclick="showHelpSection('export')" id="help-nav-export">
+        <span class="help-nav-icon">&#128229;</span> Export &amp; Save
+      </a>
+      <a onclick="showHelpSection('output-files')" id="help-nav-output-files">
+        <span class="help-nav-icon">&#128196;</span> Output Files
+      </a>
+    </div>
+
+    <!-- Content area -->
+    <div class="help-content-area">
+
+      <!-- OVERVIEW -->
+      <div class="help-section active" id="help-section-intro">
+        <h2>BC Workflow Builder</h2>
+        <p class="help-section-lead">The BC Workflow Builder is a visual tool for composing multi-user Business Central test workflows — without editing JSON by hand. You wire together recorded <code>.yml</code> page scripts, define who runs each step, and let the tool export the files that <code>Run-BCWorkflow.ps1</code> needs to execute the full workflow.</p>
+        <h3>What problem does it solve?</h3>
+        <p>Business Central processes often span multiple users — a purchaser creates a PO, an approver reviews it, finance posts it. Each individual action can be recorded as a <code>.yml</code> script using BC's page scripting recorder. The Workflow Builder stitches those individual scripts into a single, reproducible workflow where data automatically flows between steps.</p>
+        <h3>Core concepts</h3>
+        <table class="help-table">
+          <thead><tr><th>Concept</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Project</strong></td><td>A named folder under <code>page-scripting/</code> that holds your workflow, scripts, and user templates.</td></tr>
+            <tr><td><strong>Step</strong></td><td>One script execution by one user, with optional input/output values.</td></tr>
+            <tr><td><strong>Capture</strong></td><td>A value read from BC during a step (e.g. the PO number just created) and stored for later steps.</td></tr>
+            <tr><td><strong>Inject</strong></td><td>A captured value from a previous step injected into the current step's script parameters.</td></tr>
+            <tr><td><strong>User Role</strong></td><td>A named actor (purchaser, approver) mapped to real BC credentials in <code>users.json</code>.</td></tr>
+          </tbody>
+        </table>
+        <div class="help-callout info">This tool is for demo and research purposes. Use at your own risk in non-production environments.</div>
+      </div>
+
+      <!-- QUICK START -->
+      <div class="help-section" id="help-section-quickstart">
+        <h2>Quick Start</h2>
+        <p class="help-section-lead">Get from zero to a running workflow in under 10 minutes.</p>
+        <h3>Prerequisites</h3>
+        <ul>
+          <li>The local app server is running (<code>start.ps1</code> or <code>start.bat</code> from the repo root).</li>
+          <li>You have at least one recorded <code>.yml</code> page script from BC's page scripting recorder.</li>
+          <li>Test user accounts exist in your BC environment with MFA disabled.</li>
+        </ul>
+        <h3>Step-by-step</h3>
+        <ol>
+          <li><span class="help-step-number">1</span><strong>Open the builder</strong> — navigate to <code>http://localhost:3000</code> (or open <code>index.html</code> directly in a browser).</li>
+          <li><span class="help-step-number">2</span><strong>Select an environment</strong> on the project picker screen or pick an existing project.</li>
+          <li><span class="help-step-number">3</span><strong>Fill in Workflow Settings</strong> — give your workflow a name and confirm the BC URL (left sidebar).</li>
+          <li><span class="help-step-number">4</span><strong>Upload scripts</strong> — drag <code>.yml</code> files onto the Script Library drop zone.</li>
+          <li><span class="help-step-number">5</span><strong>Add steps</strong> — click <em>+ Add Step</em>, choose a role and assign a script for each step.</li>
+          <li><span class="help-step-number">6</span><strong>Review captures &amp; injects</strong> — check the auto-suggested values in the Step Properties panel.</li>
+          <li><span class="help-step-number">7</span><strong>Save or Export</strong> — use <em>Save</em> to write back to the project folder, or <em>Export JSON</em> to download the files.</li>
+          <li><span class="help-step-number">8</span><strong>Run the workflow</strong> — open a terminal in <code>bc-replay/</code> and run <code>.\npx-run.ps1</code>.</li>
+        </ol>
+        <div class="help-callout tip">Always test your BASE scripts manually in BC before adding them to a workflow. A script that fails on its own will fail in the workflow too.</div>
+      </div>
+
+      <!-- WORKFLOW SETTINGS -->
+      <div class="help-section" id="help-section-workflow-settings">
+        <h2>Workflow Settings</h2>
+        <p class="help-section-lead">The left sidebar contains the global settings that apply to the whole workflow.</p>
+        <h3>Name</h3>
+        <p>A human-readable label written into <code>workflow.json</code> as the <code>name</code> field. Used in test reports.</p>
+        <h3>Description</h3>
+        <p>Optional free-text description of what the workflow tests. Stored in <code>workflow.json</code>.</p>
+        <h3>Environment</h3>
+        <p>Select the BC environment from the drop-down. This auto-populates:</p>
+        <ul>
+          <li>The BC Environment URL field.</li>
+          <li>Available user roles (fetched from the project's <code>users.json</code>).</li>
+        </ul>
+        <h3>BC Environment URL</h3>
+        <p>The full URL passed to <code>npx replay</code> as the <code>-StartAddress</code> parameter. Example:</p>
+        <pre>https://businesscentral.dynamics.com/your-tenant-id/sandbox</pre>
+        <div class="help-callout warning">If you change the URL after steps have been added, make sure your scripts are still valid for the new environment and company.</div>
+      </div>
+
+      <!-- USER ROLES -->
+      <div class="help-section" id="help-section-user-roles">
+        <h2>User Roles</h2>
+        <p class="help-section-lead">Roles represent the different actors in your workflow. Each step is executed by exactly one role.</p>
+        <h3>How roles work</h3>
+        <p>When you select an environment, roles are loaded automatically from the project's <code>users.json</code> file. Each role gets a unique colour that appears in the swim-lane headers and on step cards so you can quickly see who does what.</p>
+        <h3>Role colours in the canvas</h3>
+        <p>The canvas uses swim lanes — one column per role. Steps are placed in the lane of whichever role is assigned to that step, making the handover between users immediately visible.</p>
+        <h3>users.json format</h3>
+        <pre>{
+  "purchaser": { "username": "purchaser@tenant.onmicrosoft.com", "password": "secret" },
+  "approver":  { "username": "approver@tenant.onmicrosoft.com",  "password": "secret" }
+}</pre>
+        <div class="help-callout warning">Never commit <code>users.json</code> with real passwords to version control. Use <code>users.sample.json</code> as a template and add <code>users.json</code> to <code>.gitignore</code>.</div>
+      </div>
+
+      <!-- SCRIPT LIBRARY -->
+      <div class="help-section" id="help-section-scripts">
+        <h2>Script Library</h2>
+        <p class="help-section-lead">The Script Library holds the <code>.yml</code> page scripts that you assign to workflow steps.</p>
+        <h3>Adding scripts</h3>
+        <ul>
+          <li><strong>Drag &amp; drop</strong> — drag one or more <code>.yml</code> files from your file explorer onto the drop zone.</li>
+          <li><strong>Click to browse</strong> — click the drop zone to open a file picker.</li>
+        </ul>
+        <h3>What gets parsed</h3>
+        <p>When a script is loaded, the builder automatically extracts:</p>
+        <table class="help-table">
+          <thead><tr><th>Extracted data</th><th>Source in the YAML</th></tr></thead>
+          <tbody>
+            <tr><td>Script name</td><td><code>name:</code> field at the top level</td></tr>
+            <tr><td>Parameters</td><td><code>parameters:</code> section (injectable values)</td></tr>
+            <tr><td>Captures</td><td><code>type: copy-value</code> steps with a <code>name:</code></td></tr>
+          </tbody>
+        </table>
+        <h3>Removing a script</h3>
+        <p>Click the <strong>&times;</strong> button on any script chip. If a step is already using that script, the script reference on that step will be cleared.</p>
+        <div class="help-callout tip">Upload all scripts for the workflow before building steps — the auto-suggest for captures and injects only works if the source script is already in the library.</div>
+      </div>
+
+      <!-- WORKFLOW STEPS -->
+      <div class="help-section" id="help-section-steps">
+        <h2>Workflow Steps</h2>
+        <p class="help-section-lead">Steps are the individual script executions that make up your workflow, shown as cards in the canvas.</p>
+        <h3>Adding a step</h3>
+        <p>Click the <strong>+ Add Step</strong> button at the bottom of the canvas. A new card appears and the Step Properties panel opens on the right.</p>
+        <h3>Step card anatomy</h3>
+        <table class="help-table">
+          <thead><tr><th>Part</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>Role badge</td><td>Coloured label showing which user runs this step.</td></tr>
+            <tr><td>Step name</td><td>Display name — defaults to the script name, fully editable.</td></tr>
+            <tr><td>Step ID</td><td>Machine-readable identifier used in <code>depends_on</code> references.</td></tr>
+            <tr><td>Script path</td><td>Relative path to the <code>.yml</code> file.</td></tr>
+            <tr><td><span class="help-badge capture">capture</span></td><td>Number of values captured from BC during this step.</td></tr>
+            <tr><td><span class="help-badge inject">inject</span></td><td>Number of captured values injected into this step's parameters.</td></tr>
+          </tbody>
+        </table>
+        <h3>Step dependencies</h3>
+        <p>Each step has a <code>depends_on</code> field. By default a new step depends on the previous step, ensuring correct execution order. You can change this in the Step Properties panel — useful for parallel steps or workflows that branch.</p>
+        <h3>Reordering steps</h3>
+        <p>Delete a step and re-add it in the correct position, or adjust <code>depends_on</code> to control the logical execution order.</p>
+        <h3>Deleting a step</h3>
+        <p>Open the step's properties panel and click <strong>Delete Step</strong> at the bottom.</p>
+        <div class="help-callout tip">Click any step card to open its properties. The canvas supports horizontal scrolling if you have many roles or many steps.</div>
+      </div>
+
+      <!-- CAPTURES & INJECTS -->
+      <div class="help-section" id="help-section-capture-inject">
+        <h2>Captures &amp; Injects</h2>
+        <p class="help-section-lead">Captures and injects are how data flows between steps — for example, passing the PO number created in step 1 to the approver script in step 2.</p>
+        <h3>Captures</h3>
+        <p>A capture reads a value from BC during step execution and stores it under a variable name. In your <code>.yml</code> script, a capture looks like this:</p>
+        <pre>- type: copy-value
+  source:
+    - page: Purchase Order
+    - field: No.
+  name: po_number</pre>
+        <p>The builder detects these automatically when you load a script. In Step Properties you will see auto-suggested capture entries. Accept them with one click.</p>
+        <h3>Injects</h3>
+        <p>An inject takes a captured value from an earlier step and passes it to a parameter in the current step's script. The script must declare the parameter in its <code>parameters:</code> section.</p>
+        <pre>parameters:
+  po_number:
+    default: ""</pre>
+        <p>The builder matches inject targets to available captures from all preceding steps and suggests mappings automatically.</p>
+        <h3>Manual entries</h3>
+        <p>You can add capture/inject rows manually using <strong>+ add row</strong> in the Step Properties panel if the auto-detection misses something.</p>
+        <table class="help-table">
+          <thead><tr><th>Column</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>Key (capture)</td><td>Variable name stored in workflow state.</td></tr>
+            <tr><td>Field / Path (capture)</td><td>BC field to read the value from (e.g. <code>No.</code> or a JSONPath like <code>$.id</code> for API steps).</td></tr>
+            <tr><td>Parameter (inject)</td><td>Script parameter name to receive the value.</td></tr>
+            <tr><td>From (inject)</td><td>Variable name produced by the capture in the earlier step.</td></tr>
+          </tbody>
+        </table>
+        <div class="help-callout info">Capture variable names must be unique across the entire workflow. If two steps capture to the same name, the later value overwrites the earlier one.</div>
+      </div>
+
+      <!-- API STEPS -->
+      <div class="help-section" id="help-section-api-steps">
+        <h2>API Steps</h2>
+        <p class="help-section-lead">API steps call a BC REST endpoint directly (without a page script), useful for data setup, validation, or triggering background processes.</p>
+        <h3>Adding an API step</h3>
+        <p>In the left sidebar under <strong>API Components</strong>, click a component chip or drag it onto the canvas. A new step card with a purple <span class="help-badge api">API</span> indicator is added.</p>
+        <h3>Available components</h3>
+        <table class="help-table">
+          <thead><tr><th>Component</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><strong>BC API Call</strong></td><td>Generic REST step — configure method, endpoint, and body yourself.</td></tr>
+            <tr><td><strong>Create Customer</strong></td><td>POST to the 4PS custom <code>/customers</code> endpoint. Body and response capture are pre-filled.</td></tr>
+          </tbody>
+        </table>
+        <h3>API step properties</h3>
+        <ul>
+          <li><strong>Method</strong> — GET, POST, PATCH, DELETE.</li>
+          <li><strong>Endpoint</strong> — full URL; supports <code>{{tenantId}}</code>, <code>{{environmentName}}</code>, <code>{{companyId}}</code> tokens.</li>
+          <li><strong>Body template</strong> — JSON body sent with POST/PATCH requests. Values can reference injected captures with <code>{{variable_name}}</code>.</li>
+          <li><strong>Capture response</strong> — JSONPath expressions mapping response fields to capture variables (e.g. <code>$.id</code> → <code>customer_id</code>).</li>
+          <li><strong>App registration</strong> — select which OAuth credentials to use for authentication.</li>
+        </ul>
+        <p>API steps run in a dedicated <em>system</em> swim lane (created automatically) and do not require a user role.</p>
+        <div class="help-callout warning">API steps require a configured App Registration. Import your <code>app-registrations.json</code> before running a workflow containing API steps.</div>
+      </div>
+
+      <!-- APP REGISTRATIONS -->
+      <div class="help-section" id="help-section-app-regs">
+        <h2>App Registrations</h2>
+        <p class="help-section-lead">App registrations provide the OAuth client credentials used to authenticate API steps against BC.</p>
+        <h3>Importing</h3>
+        <p>Click <strong>Import</strong> next to the App Registrations heading in the sidebar and select your <code>app-registrations.json</code> file. The builder parses and stores the registrations for the current session.</p>
+        <h3>File format</h3>
+        <pre>{
+  "my-app": {
+    "client_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "client_secret": "your-secret-here",
+    "tenant_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "environment_name": "sandbox",
+    "company_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+  }
+}</pre>
+        <p>Use <code>app-registrations.sample.json</code> as a template and never commit your real <code>app-registrations.json</code> to version control.</p>
+        <h3>Assigning to an API step</h3>
+        <p>In the Step Properties panel for an API step, select the desired registration from the <strong>App Registration</strong> drop-down. The tenant ID, environment name, and company ID are automatically substituted into endpoint URL tokens.</p>
+        <div class="help-callout tip">The app registration must have <em>Financials.ReadWrite.All</em> (or the relevant BC API permission) granted in Microsoft Entra ID.</div>
+      </div>
+
+      <!-- EXPORT & SAVE -->
+      <div class="help-section" id="help-section-export">
+        <h2>Export &amp; Save</h2>
+        <p class="help-section-lead">Two ways to get your workflow out of the builder and into the file system.</p>
+        <h3>Save (recommended)</h3>
+        <p>Click <strong>Save</strong> in the header. This writes <code>workflow.json</code> and <code>users.sample.json</code> directly back to the current project folder on disk. Requires the local app server to be running.</p>
+        <h3>Export JSON</h3>
+        <p>Use the validation &amp; export flow (available if the builder shows an Export button, or via keyboard shortcut) to download both files to your browser's Downloads folder. Move them into your project folder manually.</p>
+        <h3>Validation before export</h3>
+        <p>Before saving or exporting, the builder runs automatic validation and will show an error list if anything is missing:</p>
+        <ul>
+          <li>Workflow name is required.</li>
+          <li>Every step must have a role and a script assigned.</li>
+          <li>Step IDs must be unique.</li>
+          <li>A BC Environment URL must be set.</li>
+        </ul>
+        <h3>After exporting</h3>
+        <ol>
+          <li>Copy <code>users.sample.json</code> to <code>users.json</code> and add real credentials.</li>
+          <li>Place your <code>.yml</code> script files in the <code>scripts/</code> sub-folder alongside <code>workflow.json</code>.</li>
+          <li>Run the workflow from <code>bc-replay/</code>: <code>.\npx-run.ps1</code></li>
+        </ol>
+        <div class="help-callout tip">After running, open the HTML report with <code>npx playwright show-report</code> inside the <code>bc-replay/</code> folder.</div>
+      </div>
+
+      <!-- OUTPUT FILES -->
+      <div class="help-section" id="help-section-output-files">
+        <h2>Output Files</h2>
+        <p class="help-section-lead">The builder produces two files consumed by <code>Run-BCWorkflow.ps1</code>.</p>
+        <h3>workflow.json</h3>
+        <pre>{
+  "name": "Purchase Order Approval",
+  "description": "End-to-end PO creation and approval",
+  "bc_url": "https://businesscentral.dynamics.com/tenant/sandbox",
+  "steps": [
+    {
+      "id": "create-po",
+      "name": "Create Purchase Order",
+      "user": "purchaser",
+      "script": "./scripts/create-po.yml",
+      "capture": { "po_number": "No." }
+    },
+    {
+      "id": "approve-po",
+      "name": "Approve Purchase Order",
+      "user": "approver",
+      "script": "./scripts/approve-po.yml",
+      "depends_on": "create-po",
+      "inject": { "po_number": "po_number" }
+    }
+  ]
+}</pre>
+        <h3>users.sample.json</h3>
+        <pre>{
+  "purchaser": {
+    "username": "purchaser@yourtenant.onmicrosoft.com",
+    "password": "your-password-here"
+  },
+  "approver": {
+    "username": "approver@yourtenant.onmicrosoft.com",
+    "password": "your-password-here"
+  }
+}</pre>
+        <p>Copy to <code>users.json</code> and fill in real credentials. This file is for the <em>current workflow project only</em>.</p>
+        <h3>Project folder structure (recommended)</h3>
+        <pre>page-scripting/
+└── My Workflow/
+    ├── workflow.json
+    ├── users.json          ← real creds, gitignored
+    ├── users.sample.json   ← template, committed
+    └── scripts/
+        ├── create-po.yml
+        └── approve-po.yml</pre>
+        <div class="help-callout info">The <code>results/</code> folder is created automatically by <code>Run-BCWorkflow.ps1</code> after the first run and contains per-step Playwright reports.</div>
+      </div>
+
+    </div><!-- /help-content-area -->
+  </div><!-- /help-modal -->
+</div><!-- /help-overlay -->
 
 <!-- Validation Errors Modal -->
 <div class="modal-overlay hidden" id="validation-errors-overlay" onclick="if(event.target===this)document.getElementById('validation-errors-overlay').classList.add('hidden')">
@@ -1678,14 +2085,55 @@ function renderPropertiesReplay(step) {
     </tr>`
   ).join('');
 
-  // Build inject rows
-  const injectRows = Object.entries(step.inject || {}).map(([field, ref], i) =>
-    `<tr>
-      <td><input value="${escAttr(field)}" onchange="updateInject('${escAttr(step.id)}', ${i}, 'key', this.value)" placeholder="Page.Field"></td>
-      <td><input value="${escAttr(ref)}" onchange="updateInject('${escAttr(step.id)}', ${i}, 'value', this.value)" placeholder="{capture.step.var}"></td>
+  // Collect all script parameters from all assigned scripts
+  const allScriptParams = [];
+  for (const sp of stepScriptsForMeta) {
+    const spFile = sp?.replace('./scripts/', '');
+    const spMeta = state.scripts[spFile];
+    if (spMeta) allScriptParams.push(...spMeta.parameters);
+  }
+  const uniqueParams = [...new Set(allScriptParams)];
+  const usedParams = Object.keys(step.inject || {});
+
+  // Build inject rows with dropdowns
+  const hasParams = uniqueParams.length > 0;
+  const injectRows = Object.entries(step.inject || {}).map(([field, ref], i) => {
+    // Parameter column: dropdown when parameters are known, text input otherwise
+    let paramCell;
+    if (hasParams) {
+      const paramOpts = uniqueParams.map(p =>
+        `<option value="${escAttr(p)}" ${p === field ? 'selected' : ''}>${escHtml(p)}</option>`
+      ).join('');
+      const extraParamOpt = (field && !uniqueParams.includes(field))
+        ? `<option value="${escAttr(field)}" selected>${escHtml(field)}</option>` : '';
+      paramCell = `<select onchange="updateInject('${escAttr(step.id)}', ${i}, 'key', this.value)">
+        <option value="">-- parameter --</option>
+        ${extraParamOpt}${paramOpts}
+      </select>`;
+    } else {
+      paramCell = `<input value="${escAttr(field)}" onchange="updateInject('${escAttr(step.id)}', ${i}, 'key', this.value)" placeholder="e.g. {{project_no}} or Page.Field">`;
+    }
+
+    // Source dropdown: show all available captures
+    const sourceOpts = availableCaptures.map(c => {
+      const val = `{capture.${c.stepId}.${c.varName}}`;
+      return `<option value="${escAttr(val)}" ${val === ref ? 'selected' : ''}>${escHtml(c.varName)} (${escHtml(c.stepId)})</option>`;
+    }).join('');
+    const extraSourceOpt = (ref && !availableCaptures.some(c => `{capture.${c.stepId}.${c.varName}}` === ref))
+      ? `<option value="${escAttr(ref)}" selected>${escHtml(ref)}</option>` : '';
+
+    return `<tr>
+      <td>${paramCell}</td>
+      <td><select onchange="updateInject('${escAttr(step.id)}', ${i}, 'value', this.value)">
+        <option value="">-- source --</option>
+        ${extraSourceOpt}${sourceOpts}
+      </select></td>
       <td class="remove-row" onclick="removeInject('${escAttr(step.id)}', ${i})">&times;</td>
-    </tr>`
-  ).join('');
+    </tr>`;
+  }).join('');
+
+  // Determine if "+ Add" should be shown (when captures exist from earlier steps)
+  const canAddInject = availableCaptures.length > 0;
 
   panel.innerHTML = `
     <div class="field-group">
@@ -1742,14 +2190,14 @@ function renderPropertiesReplay(step) {
     <div class="mt-4">
       <label class="flex justify-between items-center">
         <strong>Injects</strong>
-        <span class="add-row-btn" onclick="addInject('${escAttr(step.id)}')">+ Add</span>
+        ${canAddInject ? `<span class="add-row-btn" onclick="addInject('${escAttr(step.id)}')" title="Map a captured value to a script parameter">+ Add mapping</span>` : ''}
       </label>
-      <span class="text-sm text-muted">Values injected into this script's parameters from earlier captures.</span>
-      ${availableCaptures.length ? `<div class="text-sm mt-2" style="color:var(--success)">Available: ${availableCaptures.map(c => `{capture.${c.stepId}.${c.varName}}`).join(', ')}</div>` : ''}
+      <span class="text-sm text-muted">Map captured values from earlier steps to this script's parameters.</span>
+      ${!availableCaptures.length ? '<div class="text-sm text-muted mt-2">No captures available from earlier steps.</div>' : ''}
       ${injectRows ? `<table class="kv-table mt-2">
-        <tr><th>Parameter (Page.Field)</th><th>Source</th><th></th></tr>
+        <tr><th>Parameter${!hasParams ? ' (free text)' : ''}</th><th>Source (captured value)</th><th></th></tr>
         ${injectRows}
-      </table>` : '<div class="text-sm text-muted mt-2">No injects defined.</div>'}
+      </table>` : (availableCaptures.length ? '<div class="text-sm text-muted mt-2">No mappings defined. Click <strong>+ Add mapping</strong> to connect a captured value to this step.</div>' : '')}
     </div>
 
     <div class="mt-4 flex gap-2">
@@ -1900,6 +2348,7 @@ function updateInject(stepId, index, part, value) {
     step.inject = Object.fromEntries(entries);
   }
   renderCanvas();
+  renderProperties();
 }
 
 function removeInject(stepId, index) {
@@ -1916,7 +2365,31 @@ function addInject(stepId) {
   const step = state.workflow.steps.find(s => s.id === stepId);
   if (!step) return;
   if (!step.inject) step.inject = {};
-  step.inject[''] = '';
+
+  // Collect script parameters
+  const scripts = step.scripts && step.scripts.length ? step.scripts : (step.script ? [step.script] : []);
+  const allParams = [];
+  for (const sp of scripts) {
+    const fn = sp?.replace('./scripts/', '');
+    const meta = state.scripts[fn];
+    if (meta) allParams.push(...meta.parameters);
+  }
+  const usedParams = Object.keys(step.inject);
+  const unmapped = [...new Set(allParams)].filter(p => !usedParams.includes(p));
+
+  // Collect available captures from earlier steps
+  const available = [];
+  for (const s of state.workflow.steps) {
+    if (s.id === stepId) break;
+    for (const [varName] of Object.entries(s.capture || {})) {
+      available.push({ stepId: s.id, varName });
+    }
+  }
+
+  // Pick first unmapped parameter and first available capture
+  const paramKey = unmapped.length ? unmapped[0] : `param_${usedParams.length + 1}`;
+  const sourceVal = available.length ? `{capture.${available[0].stepId}.${available[0].varName}}` : '';
+  step.inject[paramKey] = sourceVal;
   renderProperties();
 }
 
@@ -2069,8 +2542,10 @@ function buildWorkflowJson() {
         } else if (scripts.length === 1) {
           step.script = scripts[0];
         }
-        if (Object.keys(s.capture || {}).length) step.capture = s.capture;
-        if (Object.keys(s.inject || {}).length) step.inject = s.inject;
+        const cleanCapture = Object.fromEntries(Object.entries(s.capture || {}).filter(([k]) => k.trim() !== ''));
+        const cleanInject  = Object.fromEntries(Object.entries(s.inject  || {}).filter(([k]) => k.trim() !== ''));
+        if (Object.keys(cleanCapture).length) step.capture = cleanCapture;
+        if (Object.keys(cleanInject).length)  step.inject  = cleanInject;
       }
       if (s.depends_on) step.depends_on = s.depends_on;
       return step;
@@ -2431,6 +2906,26 @@ async function openProject(name, hasWorkflow) {
       toast(`Could not load workflow: ${e.message}`, 'error');
     }
 
+    // Auto-load script files so parameter/capture metadata is available
+    try {
+      const sres = await fetch(`/api/projects/${encodeURIComponent(name)}/scripts`);
+      if (sres.ok) {
+        const scriptFiles = await sres.json();
+        for (const sf of scriptFiles) {
+          if (sf.content) {
+            const meta = parseYamlBasic(sf.content);
+            state.scripts[sf.name] = {
+              name: meta.name || sf.name.replace(/\.ya?ml$/i, ''),
+              content: sf.content,
+              parameters: meta.parameters,
+              captures: meta.captures,
+              parameterDefaults: meta.parameterDefaults
+            };
+          }
+        }
+      }
+    } catch { /* scripts optional */ }
+
     // Load usernames from users.sample.json (or users.json) if it exists
     try {
       const ures = await fetch(`/api/projects/${encodeURIComponent(name)}/users`);
@@ -2675,6 +3170,55 @@ window.addEventListener('message', function(evt) {
     toast('Workflow loaded from project', 'success');
   }
 });
+
+/* ════════════════════════════════════════════════════════════════════
+   HELP MODAL
+   ════════════════════════════════════════════════════════════════════ */
+function showHelp() {
+  document.getElementById('help-overlay').classList.remove('hidden');
+  showHelpSection('intro');
+}
+function closeHelp() {
+  document.getElementById('help-overlay').classList.add('hidden');
+}
+function showHelpSection(id) {
+  // Hide all sections
+  document.querySelectorAll('.help-section').forEach(s => s.classList.remove('active'));
+  // Deactivate all nav links
+  document.querySelectorAll('.help-nav a').forEach(a => a.classList.remove('active'));
+  // Show selected section
+  const sec = document.getElementById('help-section-' + id);
+  if (sec) sec.classList.add('active');
+  // Activate nav link
+  const nav = document.getElementById('help-nav-' + id);
+  if (nav) nav.classList.add('active');
+  // Scroll content back to top
+  const area = document.querySelector('.help-content-area');
+  if (area) area.scrollTop = 0;
+}
+// Close help with Escape key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !document.getElementById('help-overlay').classList.contains('hidden')) {
+    closeHelp();
+  }
+});
+
+/* ════════════════════════════════════════════════════════════════════
+   SIDEBAR HELP ACCORDION
+   ════════════════════════════════════════════════════════════════════ */
+function toggleHelpAcc(id) {
+  const item = document.getElementById('hacc-' + id);
+  if (!item) return;
+  const isOpen = item.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.help-acc-item').forEach(i => i.classList.remove('open'));
+  // Toggle clicked
+  if (!isOpen) item.classList.add('open');
+}
+
+function scrollToSidebarHelp() { showHelp(); }
+
+function toggleTipsPanel() {}
 </script>
 </body>
 </html>
