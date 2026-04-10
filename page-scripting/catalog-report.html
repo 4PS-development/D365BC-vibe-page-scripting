@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Catalog Report</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: #f1f5f9; color: #1e293b; }
+        .header { background: #1A1A1A; color: #fff; padding: 24px 32px; }
+        .header h1 { margin: 0 0 8px 0; font-size: 24px; font-weight: 600; }
+        .header .subtitle { color: #94a3b8; font-size: 14px; }
+        .summary { display: flex; gap: 16px; padding: 20px 32px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+        .summary .card { flex: 1; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center; }
+        .summary .card .value { font-size: 28px; font-weight: 700; }
+        .summary .card .label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+        .content { padding: 24px 32px; max-width: 1200px; }
+        table { font-size: 14px; }
+        tbody tr:nth-child(even) { background: #f8fafc; }
+        tbody tr:hover { background: #f1f5f9; }
+        a:hover { text-decoration: underline !important; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Test Catalog Report</h1>
+        <div class="subtitle">Generated: 2026-04-10 11:10:07 &mdash; Waardeketen &gt; Type &gt; Procesflow</div>
+    </div>
+
+    <div class="summary">
+        <div class="card">
+            <div class="value" style="color:#D0021B">2</div>
+            <div class="label">Process Flows</div>
+        </div>
+        <div class="card">
+            <div class="value" style="color:#22c55e">0</div>
+            <div class="label">Passed</div>
+        </div>
+        <div class="card">
+            <div class="value" style="color:#D0021B">2</div>
+            <div class="label">Failed</div>
+        </div>
+        <div class="card">
+            <div class="value" style="color:#6b7280">0</div>
+            <div class="label">Not Run</div>
+        </div>
+    </div>
+
+    <div class="content">
+    <section style="margin-bottom:32px;padding:20px;background:#fff;border:1px solid #e2e8f0;border-radius:8px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <h2 style="margin:0;font-size:20px;color:#1e293b">PRJ &mdash; Projecten</h2>
+            <span style="font-size:13px"><span style="color:#D0021B;font-weight:600">1 failed</span></span>
+        </div>
+        <p style="margin:0 0 16px 0;font-size:14px;color:#64748b">Projectmatige bedrijfsprocessen — van acquisitie tot oplevering.</p>
+        <div style="margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+                <h3 style="margin:0;font-size:16px;color:#334155">PRJ-VG &mdash; Vastgoed</h3>
+                <span style="font-size:13px;color:#64748b"><span style="color:#D0021B;font-weight:600">1 failed</span></span>
+            </div>
+            <p style="margin:0 0 8px 0;font-size:13px;color:#64748b">Vastgoedprojecten — traject, projectkaart, overdracht.</p>
+            <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+                <thead>
+                    <tr style="background:#f8fafc">
+                        <th style="padding:8px 12px;text-align:left;font-size:12px;color:#64748b;font-weight:600">Code</th>
+                        <th style="padding:8px 12px;text-align:left;font-size:12px;color:#64748b;font-weight:600">Process Flow</th>
+                        <th style="padding:8px 12px;text-align:center;font-size:12px;color:#64748b;font-weight:600">Status</th>
+                        <th style="padding:8px 12px;text-align:center;font-size:12px;color:#64748b;font-weight:600">Steps</th>
+                        <th style="padding:8px 12px;text-align:right;font-size:12px;color:#64748b;font-weight:600">Duration</th>
+                        <th style="padding:8px 12px;text-align:center;font-size:12px;color:#64748b;font-weight:600">Last Run</th>
+                        <th style="padding:8px 12px;text-align:center;font-size:12px;color:#64748b;font-weight:600">Report</th>
+                    </tr>
+                </thead>
+                <tbody>
+            <tr>
+                <td style="padding:8px 12px;font-family:monospace;font-size:13px;color:#64748b">PRJ-VG-TRAJECT</td>
+                <td style="padding:8px 12px;font-weight:500">Van traject naar project</td>
+                <td style="padding:8px 12px;text-align:center"><span style="display:inline-block;padding:2px 10px;border-radius:4px;color:#fff;font-size:12px;font-weight:600;background:#D0021B">FAILED</span></td>
+                <td style="padding:8px 12px;text-align:center;color:#64748b">1 steps</td>
+                <td style="padding:8px 12px;text-align:right;color:#64748b;font-family:monospace">41.1s</td>
+                <td style="padding:8px 12px;text-align:center;color:#64748b;font-size:12px">2026-03-12 10:49</td>
+                <td style="padding:8px 12px;text-align:center"><a href=".\Van traject naar project\results\workflow-summary.html" style="color:#3b82f6;text-decoration:none">View Report</a></td>
+            </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>    <section style="margin-bottom:32px;padding:20px;background:#fff;border:1px solid #e2e8f0;border-radius:8px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <h2 style="margin:0;font-size:20px;color:#1e293b">INK &mdash; Inkoop</h2>
+            <span style="font-size:13px"><span style="color:#D0021B;font-weight:600">1 failed</span></span>
+        </div>
+        <p style="margin:0 0 16px 0;font-size:14px;color:#64748b">Inkoopprocessen — bestelling, goedkeuring, ontvangst.</p>
+        <div style="margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+                <h3 style="margin:0;font-size:16px;color:#334155">INK-PO &mdash; Purchase Orders</h3>
+                <span style="font-size:13px;color:#64748b"><span style="color:#D0021B;font-weight:600">1 failed</span></span>
+            </div>
+            <p style="margin:0 0 8px 0;font-size:13px;color:#64748b">Inkooporder workflows.</p>
+            <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+                <thead>
+                    <tr style="background:#f8fafc">
+                        <th style="padding:8px 12px;text-align:left;font-size:12px;color:#64748b;font-weight:600">Code</th>
+                        <th style="padding:8px 12px;text-align:left;font-size:12px;color:#64748b;font-weight:600">Process Flow</th>
+                        <th style="padding:8px 12px;text-align:center;font-size:12px;color:#64748b;font-weight:600">Status</th>
+                        <th style="padding:8px 12px;text-align:center;font-size:12px;color:#64748b;font-weight:600">Steps</th>
+                        <th style="padding:8px 12px;text-align:right;font-size:12px;color:#64748b;font-weight:600">Duration</th>
+                        <th style="padding:8px 12px;text-align:center;font-size:12px;color:#64748b;font-weight:600">Last Run</th>
+                        <th style="padding:8px 12px;text-align:center;font-size:12px;color:#64748b;font-weight:600">Report</th>
+                    </tr>
+                </thead>
+                <tbody>
+            <tr>
+                <td style="padding:8px 12px;font-family:monospace;font-size:13px;color:#64748b">INK-PO-APPR</td>
+                <td style="padding:8px 12px;font-weight:500">PO Approval</td>
+                <td style="padding:8px 12px;text-align:center"><span style="display:inline-block;padding:2px 10px;border-radius:4px;color:#fff;font-size:12px;font-weight:600;background:#D0021B">FAILED</span></td>
+                <td style="padding:8px 12px;text-align:center;color:#64748b">1 steps</td>
+                <td style="padding:8px 12px;text-align:right;color:#64748b;font-family:monospace">24.9s</td>
+                <td style="padding:8px 12px;text-align:center;color:#64748b;font-size:12px">2026-03-12 12:55</td>
+                <td style="padding:8px 12px;text-align:center"><a href=".\PO Approval Workflow\results\workflow-summary.html" style="color:#3b82f6;text-decoration:none">View Report</a></td>
+            </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+    </div>
+</body>
+</html>

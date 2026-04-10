@@ -1,0 +1,53 @@
+{
+  "$schema": "./catalog.schema.json",
+  "value_chains": [
+    {
+      "code": "PRJ",
+      "name": "Projecten",
+      "description": "Projectmatige bedrijfsprocessen — van acquisitie tot oplevering.",
+      "types": [
+        {
+          "code": "VG",
+          "name": "Vastgoed",
+          "description": "Vastgoedprojecten — traject, projectkaart, overdracht.",
+          "process_flows": [
+            {
+              "code": "TRAJECT",
+              "name": "Van traject naar project",
+              "description": "Volledig traject: aanmaken traject, overdracht, projectkaart inrichten.",
+              "workflow_path": "./Van traject naar project"
+            },
+            {
+              "code": "STD",
+              "name": "Standaard project aanmaken",
+              "description": "",
+              "workflow_path": "./Standaard project aanmaken"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "INK",
+      "name": "Inkoop",
+      "description": "Inkoopprocessen — bestelling, goedkeuring, ontvangst.",
+      "types": [
+        {
+          "code": "PO",
+          "name": "Purchase Orders",
+          "description": "Inkooporder workflows.",
+          "process_flows": [
+            {
+              "code": "APPR",
+              "name": "PO Approval",
+              "description": "Multi-user workflow: inkoper maakt PO, goedkeurder keurt goed.",
+              "workflow_path": "./PO Approval Workflow"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "name": "4PS test catalog",
+  "description": ""
+}

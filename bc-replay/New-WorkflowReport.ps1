@@ -43,7 +43,13 @@ function New-WorkflowReport {
         [datetime]$WorkflowStart,
 
         [Parameter(Mandatory = $true)]
-        [datetime]$WorkflowEnd
+        [datetime]$WorkflowEnd,
+
+        [Parameter(Mandatory = $false)]
+        [string]$CatalogBreadcrumb,
+
+        [Parameter(Mandatory = $false)]
+        [string]$CompositeCode
     )
 
     if (-not (Test-Path $OutputDir)) {
@@ -242,6 +248,11 @@ function New-WorkflowReport {
 </div>
 <div class="container">
     <h1>$([System.Web.HttpUtility]::HtmlEncode($WorkflowName))</h1>
+$(if ($CatalogBreadcrumb) {
+    $encodedBreadcrumb = [System.Web.HttpUtility]::HtmlEncode($CatalogBreadcrumb)
+    $codeLabel = if ($CompositeCode) { "<span style=`"font-family:monospace;background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.85em;color:#64748b`">$([System.Web.HttpUtility]::HtmlEncode($CompositeCode))</span> " } else { "" }
+    "    <p style=`"margin:0 0 4px 0;font-size:0.88em;color:#94a3b8`">$codeLabel$encodedBreadcrumb</p>"
+})
     <p class="subtitle">
         <span class="overall-badge" style="background:$overallBg">$($summary.overall)</span>
         &nbsp; $($WorkflowStart.ToString("yyyy-MM-dd HH:mm:ss")) &mdash; $([math]::Round(($WorkflowEnd - $WorkflowStart).TotalSeconds, 1))s total

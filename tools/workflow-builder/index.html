@@ -75,6 +75,56 @@ main { flex: 1; display: flex; overflow: hidden; }
 }
 .sidebar-section:last-child { border-bottom: none; }
 
+/* ── Catalog Sidebar Tree ─────────────────────────────────────────── */
+.cat-tree { font-size: 12px; }
+.cat-tree-empty { text-align: center; padding: 12px 0; color: var(--text-muted); font-size: 12px; }
+.cat-tree-vc { margin-bottom: 2px; }
+.cat-tree-vc-label { font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 4px; padding: 3px 0; cursor: default; }
+.cat-tree-vc-label code { font-size: 10px; color: var(--text-muted); background: var(--bg); padding: 0 4px; border-radius: 3px; }
+.cat-tree-type { margin-left: 12px; margin-bottom: 1px; }
+.cat-tree-type-label { color: var(--text); display: flex; align-items: center; gap: 4px; padding: 2px 0; cursor: default; }
+.cat-tree-type-label code { font-size: 10px; color: var(--text-muted); }
+.cat-tree-pf { margin-left: 24px; display: flex; align-items: center; gap: 4px; padding: 3px 4px; border-radius: 4px; cursor: pointer; transition: background 0.15s; }
+.cat-tree-pf:hover { background: var(--bg); }
+.cat-tree-pf.active { background: var(--primary-light); font-weight: 600; }
+.cat-tree-pf .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+.cat-tree-pf.active .dot { background: var(--primary); }
+.cat-tree-pf code { font-size: 10px; color: var(--text-muted); }
+.cat-tree-current { margin-top: 8px; font-size: 11px; color: var(--text-muted); font-family: monospace; }
+
+/* ── Catalog Editor Modal ─────────────────────────────────────────── */
+.cat-ed-meta { display: flex; gap: 12px; margin-bottom: 16px; }
+.cat-ed-meta .field-group { flex: 1; margin-bottom: 0; }
+.cat-ed-section { margin-bottom: 6px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.cat-ed-vc-header { padding: 10px 12px; background: var(--header-bg); color: #fff; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; }
+.cat-ed-vc-header code { background: rgba(255,255,255,0.15); padding: 1px 6px; border-radius: 4px; font-size: 11px; }
+.cat-ed-vc-header .actions { margin-left: auto; display: flex; gap: 4px; }
+.cat-ed-vc-header .actions button { background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 3px; }
+.cat-ed-vc-header .actions button:hover { color: #fff; background: rgba(255,255,255,0.15); }
+.cat-ed-vc-body { padding: 8px 12px; }
+.cat-ed-type-block { margin: 4px 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.cat-ed-type-header { padding: 6px 10px; background: var(--bg); display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; }
+.cat-ed-type-header code { font-size: 10px; color: var(--text-muted); }
+.cat-ed-type-header .actions { margin-left: auto; display: flex; gap: 4px; }
+.cat-ed-type-header .actions button { background: none; border: none; color: var(--text-light); cursor: pointer; font-size: 13px; padding: 1px 4px; border-radius: 3px; }
+.cat-ed-type-header .actions button:hover { color: var(--text); background: var(--border); }
+.cat-ed-pf-row { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-top: 1px solid var(--border); font-size: 12px; }
+.cat-ed-pf-row code { font-size: 10px; color: var(--text-muted); min-width: 80px; }
+.cat-ed-pf-row .pf-path { font-size: 11px; color: var(--text-light); margin-left: 8px; }
+.cat-ed-pf-row .actions { margin-left: auto; display: flex; gap: 4px; }
+.cat-ed-pf-row .actions button { background: none; border: none; color: var(--text-light); cursor: pointer; font-size: 12px; padding: 1px 3px; border-radius: 3px; }
+.cat-ed-pf-row .actions button:hover { color: var(--text); background: var(--border); }
+.cat-ed-pf-row.current { background: var(--primary-light); }
+.cat-ed-add { padding: 4px 10px; font-size: 11px; color: var(--primary); cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.cat-ed-add:hover { text-decoration: underline; }
+.cat-ed-form { padding: 8px 10px; background: #fffbe6; border-top: 1px solid var(--warning); display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; }
+.cat-ed-form input { font-size: 12px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; }
+.cat-ed-form input.short { width: 80px; }
+.cat-ed-form input.med { width: 160px; flex: 1; min-width: 100px; }
+.cat-ed-form input.wide { width: 100%; }
+.cat-ed-form .form-btns { display: flex; gap: 4px; }
+.cat-ed-form .form-btns button { font-size: 11px; padding: 4px 10px; }
+
 /* ── Help Accordion (sidebar) ────────────────────────────────────────── */
 .help-acc-item { border-bottom: 1px solid var(--border); }
 .help-acc-item:last-child { border-bottom: none; }
@@ -268,6 +318,14 @@ textarea { resize: vertical; min-height: 50px; }
 }
 .step-badge.capture { background: var(--success-light); color: var(--success); }
 .step-badge.inject { background: var(--warning-light); color: var(--warning); }
+
+/* ── Step Description ──────────────────────────────────────────────── */
+.step-description {
+  font-size: 11px; color: var(--text-muted); font-style: italic;
+  margin-bottom: 5px; line-height: 1.45;
+  overflow: hidden; text-overflow: ellipsis;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
 
 /* ── Add Step Button ───────────────────────────────────────────────── */
 .add-step-btn {
@@ -505,6 +563,23 @@ textarea { resize: vertical; min-height: 50px; }
   color: var(--text-muted); text-align: center; padding: 40px;
   font-size: 14px;
 }
+
+/* ── Power Fx Expression Helper ───────────────────────────────────── */
+.gh-chip {
+  font-family: monospace; font-size: 11px; padding: 3px 8px;
+  border-radius: 4px; border: 1px solid var(--api-border);
+  background: var(--api-light); color: var(--api-color);
+  cursor: pointer; transition: all 0.12s;
+}
+.gh-chip:hover { background: #ddd6fe; border-color: var(--api-color); }
+.gh-example {
+  font-family: monospace; font-size: 12px; text-align: left;
+  padding: 5px 10px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--bg);
+  color: var(--text); cursor: pointer; transition: all 0.12s;
+  width: 100%;
+}
+.gh-example:hover { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
 </style>
 </head>
 <body>
@@ -562,6 +637,7 @@ textarea { resize: vertical; min-height: 50px; }
       Save
     </button>
     <button onclick="resetAll()" title="Start fresh" style="color:#ff6b6b;">Reset</button>
+
     <button onclick="showHelp()" title="Help" style="color:#5bb;
       background:rgba(255,255,255,0.07);border-color:rgba(255,255,255,0.15)">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><path d="M8 11v-1.5M8 7.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3"/></svg>
@@ -597,6 +673,15 @@ textarea { resize: vertical; min-height: 50px; }
         <label for="wf-url">BC Environment URL</label>
         <input id="wf-url" placeholder="https://businesscentral.dynamics.com/..." oninput="updateWorkflowMeta()">
       </div>
+    </div>
+
+    <!-- Test Catalog -->
+    <div class="sidebar-section" id="catalog-section">
+      <h3>Catalog Position</h3>
+      <div id="catalog-tree" class="cat-tree">
+        <!-- populated by renderCatalogSidebar() -->
+      </div>
+      <div id="cat-composite" class="cat-tree-current"></div>
     </div>
 
     <!-- User Roles -->
@@ -1038,6 +1123,115 @@ textarea { resize: vertical; min-height: 50px; }
   </div><!-- /help-modal -->
 </div><!-- /help-overlay -->
 
+<!-- Power Fx Expression Helper Modal -->
+<div class="modal-overlay hidden" id="pfx-helper-overlay" onclick="if(event.target===this)closePowerFxHelper()">
+  <div class="modal" style="width:560px">
+    <div class="modal-header" style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:16px;font-weight:700;color:var(--api-color);font-family:monospace">fx</span>
+      <span>Power Fx Expression Builder</span>
+      <button onclick="closePowerFxHelper()" style="margin-left:auto;background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-muted);line-height:1;padding:0">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:16px 20px">
+
+      <!-- Live expression bar -->
+      <div class="field-group" style="margin-bottom:10px">
+        <label style="font-weight:600">Expression</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input id="pfx-formula" type="text" spellcheck="false"
+            style="font-family:monospace;font-size:13px;flex:1"
+            placeholder='e.g. "Customer " &amp; Today()'
+            oninput="pfxRefreshPreview()">
+          <button onclick="pfxClearFormula()" title="Clear" style="padding:6px 10px;font-size:12px">Clear</button>
+        </div>
+      </div>
+
+      <!-- Live preview -->
+      <div style="margin-bottom:14px;padding:8px 12px;
+          background:var(--api-light);border-radius:var(--radius);border:1px solid rgba(124,58,237,0.15)">
+        <div style="font-size:10px;font-weight:600;color:var(--api-color);text-transform:uppercase;
+            letter-spacing:.05em;margin-bottom:3px">Live preview</div>
+        <div id="pfx-preview" style="font-family:monospace;font-size:14px;color:var(--text);word-break:break-all">&mdash;</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Evaluated fresh on each workflow run.</div>
+      </div>
+
+      <!-- Info callout -->
+      <div style="margin-bottom:14px;padding:8px 12px;background:#eff6ff;border-radius:var(--radius);
+            border:1px solid #bfdbfe;font-size:11px;color:#1e40af;line-height:1.5">
+        <strong>Power Fx</strong> is the expression language used in BC page scripting property values.
+        Use <code>&amp;</code> to concatenate parts. Strings are in double quotes <code>"..."</code>.
+      </div>
+
+      <!-- Function chips -->
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+          color:var(--text-muted);margin-bottom:8px">Functions &mdash; click to insert</div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+
+        <!-- Date/Time -->
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:5px">&#128197; Date / Time</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            <button class="gh-chip" onclick="pfxInsert('Today()')"   title="Today's date (yyyy-MM-dd)">Today()</button>
+            <button class="gh-chip" onclick="pfxInsert('Now()')"     title="Current date+time">Now()</button>
+            <button class="gh-chip" onclick="pfxInsert('Text(Today(), &quot;yyyyMMdd&quot;)')" title="Formatted date">Text(Today(), "yyyyMMdd")</button>
+            <button class="gh-chip" onclick="pfxInsert('Text(Now(), &quot;HHmmss&quot;)')"    title="Formatted time">Text(Now(), "HHmmss")</button>
+          </div>
+        </div>
+
+        <!-- Random / Unique -->
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:5px">&#127922; Random / Unique</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            <button class="gh-chip" onclick="pfxInsert('RandBetween(1000, 9999)')" title="Random 4-digit number">RandBetween(1000, 9999)</button>
+            <button class="gh-chip" onclick="pfxInsert('RandBetween(100, 999)')"   title="Random 3-digit number">RandBetween(100, 999)</button>
+            <button class="gh-chip" onclick="pfxInsert('GUID()')"                  title="Full GUID like 3f9a1b2c-...">GUID()</button>
+          </div>
+        </div>
+
+        <!-- Clipboard (captures) -->
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:5px">&#128203; Clipboard (captured values)</div>
+          <div id="pfx-clipboard-chips" style="display:flex;flex-wrap:wrap;gap:6px">
+            <span style="font-size:11px;color:var(--text-muted);font-style:italic">Available captures will appear here based on earlier steps...</span>
+          </div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:4px">
+            Use <code style="background:var(--bg);padding:0 3px;border-radius:3px">Clipboard.'stepId.fieldName'</code> to reference a value captured in an earlier step.
+            Supports arithmetic: <code>Clipboard.'Field' + 1</code>
+          </div>
+        </div>
+
+        <!-- Operators -->
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:5px">&#128279; Operators</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            <button class="gh-chip" onclick="pfxInsert(' &amp; ')"  title="Concatenate strings">&amp; (join)</button>
+            <button class="gh-chip" onclick="pfxInsert(' + ')"      title="Add / increment">+ (add)</button>
+            <button class="gh-chip" onclick="pfxInsert(' - ')"      title="Subtract">- (subtract)</button>
+            <button class="gh-chip" onclick="pfxInsert('&quot;&quot;')" title='Empty string'>"" (string)</button>
+          </div>
+        </div>
+
+        <!-- Examples -->
+        <div style="border-top:1px solid var(--border);padding-top:10px">
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:6px">&#9889; Examples &mdash; click to use</div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <button class="gh-example" onclick="pfxSetFormula('&quot;Customer &quot; &amp; Today()')">"Customer " &amp; Today()</button>
+            <button class="gh-example" onclick="pfxSetFormula('&quot;PO-&quot; &amp; Text(Today(), &quot;yyyyMMdd&quot;) &amp; &quot;-&quot; &amp; RandBetween(1000, 9999)')">"PO-" &amp; Text(Today(), "yyyyMMdd") &amp; "-" &amp; RandBetween(1000, 9999)</button>
+            <button class="gh-example" onclick="pfxSetFormula('&quot;TEST-&quot; &amp; GUID()')">"TEST-" &amp; GUID()</button>
+            <button class="gh-example" onclick="pfxSetFormula('&quot;VENDOR-&quot; &amp; Text(Today(), &quot;yyyyMM&quot;) &amp; &quot;-&quot; &amp; RandBetween(100, 999)')">"VENDOR-" &amp; Text(Today(), "yyyyMM") &amp; "-" &amp; RandBetween(100, 999)</button>
+            <button class="gh-example" onclick="pfxSetFormula('Text(Today(), &quot;yyyyMMdd&quot;) &amp; Text(RandBetween(100000, 999999), &quot;000000&quot;)')">Text(Today(), "yyyyMMdd") &amp; Text(RandBetween(100000, 999999), "000000")</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closePowerFxHelper()">Cancel</button>
+      <button class="btn-primary" onclick="applyPowerFxHelper()">Apply</button>
+    </div>
+  </div>
+</div>
+
 <!-- Validation Errors Modal -->
 <div class="modal-overlay hidden" id="validation-errors-overlay" onclick="if(event.target===this)document.getElementById('validation-errors-overlay').classList.add('hidden')">
   <div class="modal" style="max-width:480px">
@@ -1108,7 +1302,8 @@ const ROLE_COLORS = [
 ];
 
 let state = {
-  workflow: { name: '', description: '', bc_url: '', steps: [] },
+  workflow: { name: '', description: '', bc_url: '', steps: [], catalog: null },
+  catalog: null,        // loaded catalog.json data (value_chains array)
   users: {},          // roleName -> { description, color }
   scripts: {},        // filename -> { name, content, parameters:[], captures:[], pages:[] }
   appRegistrations: {}, // regName -> { client_id, client_secret_hint, tenant_id, environment_name, company_id }
@@ -1210,7 +1405,95 @@ function loadMetaToForm() {
   document.getElementById('workflow-title-display').textContent = state.workflow.name || '';
   const envSel = document.getElementById('wf-env');
   if (envSel) envSel.value = state.environment || '';
+  loadCatalogToForm();
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   CATALOG — SIDEBAR TREE & MANAGEMENT
+   ════════════════════════════════════════════════════════════════════ */
+
+// --- Sidebar tree rendering ---
+function renderCatalogSidebar() {
+  const container = document.getElementById('catalog-tree');
+  const compositeEl = document.getElementById('cat-composite');
+  if (!container) return;
+  const cat = state.catalog;
+  const cur = state.workflow.catalog || {};
+
+  if (!cat || !cat.value_chains || !cat.value_chains.length) {
+    container.innerHTML = `<div class="cat-tree-empty">No catalog loaded<br>
+      <a href="#" onclick="showCatalogEditor();return false" style="color:var(--primary)">Create one</a> or
+      <a href="#" onclick="loadCatalogFromServer();return false" style="color:var(--primary)">load from server</a></div>`;
+    compositeEl.textContent = '';
+    return;
+  }
+
+  let html = '';
+  for (const vc of cat.value_chains) {
+    html += `<div class="cat-tree-vc"><div class="cat-tree-vc-label"><code>${escHtml(vc.code)}</code> ${escHtml(vc.name)}</div>`;
+    for (const t of (vc.types || [])) {
+      html += `<div class="cat-tree-type"><div class="cat-tree-type-label"><code>${escHtml(t.code)}</code> ${escHtml(t.name)}</div>`;
+      for (const pf of (t.process_flows || [])) {
+        const isActive = cur.value_chain === vc.code && cur.type === t.code && cur.process_flow === pf.code;
+        html += `<div class="cat-tree-pf${isActive ? ' active' : ''}" onclick="assignCatalogPosition('${escHtml(vc.code)}','${escHtml(t.code)}','${escHtml(pf.code)}')" title="${escHtml(pf.workflow_path || '')}">
+          <span class="dot"></span><code>${escHtml(pf.code)}</code> ${escHtml(pf.name)}</div>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+  container.innerHTML = html;
+
+  // Show composite code if position set
+  const parts = [cur.value_chain, cur.type, cur.process_flow].filter(Boolean);
+  compositeEl.textContent = parts.length ? parts.join('-') : '';
+}
+
+function assignCatalogPosition(vcCode, typeCode, pfCode) {
+  state.workflow.catalog = { value_chain: vcCode, type: typeCode, process_flow: pfCode };
+  renderCatalogSidebar();
+}
+
+async function loadCatalogFromServer() {
+  try {
+    const res = await fetch('/api/catalog');
+    if (res.ok) {
+      state.catalog = await res.json();
+      renderCatalogSidebar();
+      toast('Catalog loaded from server', 'success');
+    } else {
+      toast('No catalog.json on server — create one via Manage', 'info');
+    }
+  } catch {
+    toast('Could not reach server', 'error');
+  }
+}
+
+function loadCatalogFile() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data.value_chains) { toast('Invalid catalog — missing value_chains', 'error'); return; }
+      state.catalog = data;
+      renderCatalogSidebar();
+      toast('Catalog loaded from file', 'success');
+    } catch (err) {
+      toast(`Error: ${err.message}`, 'error');
+    }
+  };
+  input.click();
+}
+
+// Compatibility shims for functions called from other places
+function populateCatalogDropdowns() { renderCatalogSidebar(); }
+function loadCatalogToForm() { renderCatalogSidebar(); }
+function updateCatalogMeta() { renderCatalogSidebar(); }
 
 /* ════════════════════════════════════════════════════════════════════
    USERS
@@ -1428,6 +1711,7 @@ function addStep(afterIndex) {
   const step = {
     id: `step-${idx}`,
     name: `Step ${idx}`,
+    description: '',
     user: Object.keys(state.users)[0] || '',
     company: null,
     scripts: [],
@@ -1466,6 +1750,7 @@ function addApiStep(componentType, afterIndex, role) {
   const step = {
     id: `${componentType}-${idx}`,
     name: template.name,
+    description: '',
     type: 'bc-api',
     user: targetRole,
     method: template.method,
@@ -1595,8 +1880,10 @@ function renderCanvas() {
       const methodLabel = step.method || 'GET';
       const shortEndpoint = (step.endpoint || 'No endpoint set').replace(/https?:\/\/[^/]+/, '');
       const captureCount = Object.keys(step.capture_response || {}).length;
+      const apiDescHtml = step.description ? `<div class="step-description">${escHtml(step.description)}</div>` : '';
       cardBodyHtml = `
         <div class="step-card-body">
+          ${apiDescHtml}
           <div class="step-badges" style="margin-bottom:4px">
             <span class="api-type-badge">&#9889; API</span>
             <span class="step-badge api-method">${escHtml(methodLabel)}</span>
@@ -1613,8 +1900,10 @@ function renderCanvas() {
       const captureCount = Object.keys(step.capture || {}).length;
       const injectCount = Object.keys(step.inject || {}).length;
       const companyBadge = step.company ? `<span class="step-badge" style="background:#e0f2fe;color:#0369a1" title="Company: ${escAttr(step.company)}">&#127970; ${escHtml(step.company)}</span>` : '';
+      const replayDescHtml = step.description ? `<div class="step-description">${escHtml(step.description)}</div>` : '';
       cardBodyHtml = `
         <div class="step-card-body">
+          ${replayDescHtml}
           <div class="step-script">${escHtml(scriptLabel)}</div>
           <div class="step-badges">
             ${companyBadge}
@@ -1914,6 +2203,10 @@ function renderPropertiesApi(step) {
       <input value="${escAttr(step.name)}" onchange="updateStepField('${escAttr(step.id)}', 'name', this.value)">
     </div>
     <div class="field-group">
+      <label>Description <small style="font-weight:400;color:var(--text-muted)">&#8212; shown on canvas card</small></label>
+      <textarea rows="2" onchange="updateStepField('${escAttr(step.id)}', 'description', this.value)" placeholder="Short description of what this step does...">${escHtml(step.description || '')}</textarea>
+    </div>
+    <div class="field-group">
       <label>Swim Lane (User Role)</label>
       <select onchange="updateStepField('${escAttr(step.id)}', 'user', this.value)">
         <option value="">-- select lane --</option>
@@ -2121,26 +2414,73 @@ function renderPropertiesReplay(step) {
       paramCell = `<input value="${escAttr(field)}" onchange="updateInject('${escAttr(step.id)}', ${i}, 'key', this.value)" placeholder="e.g. {{project_no}} or Page.Field">`;
     }
 
-    // Source dropdown: show all available captures
-    const sourceOpts = availableCaptures.map(c => {
-      const val = `{capture.${c.stepId}.${c.varName}}`;
-      return `<option value="${escAttr(val)}" ${val === ref ? 'selected' : ''}>${escHtml(c.varName)} (${escHtml(c.stepId)})</option>`;
-    }).join('');
-    const extraSourceOpt = (ref && !availableCaptures.some(c => `{capture.${c.stepId}.${c.varName}}` === ref))
-      ? `<option value="${escAttr(ref)}" selected>${escHtml(ref)}</option>` : '';
+    // Source: type toggle + capture dropdown OR Power Fx expression
+    const isPowerFx  = typeof ref === 'string' && ref.startsWith('{powerfx:');
+    const powerFxExpr    = isPowerFx  ? ref.slice(9).replace(/\}$/, '') : '';
+    const sourceTypeVal  = isPowerFx ? 'powerfx' : 'capture';
+
+    const typeSel = `<select
+        style="font-size:10px;padding:2px 4px;border-radius:4px;border:1px solid var(--border);
+               background:var(--surface);color:var(--text);cursor:pointer;width:100%;margin-bottom:3px"
+        onchange="setInjectType('${escAttr(step.id)}', ${i}, this.value)">
+      <option value="capture" ${sourceTypeVal === 'capture' ? 'selected' : ''}>&#8595; Captured value</option>
+      <option value="powerfx" ${sourceTypeVal === 'powerfx' ? 'selected' : ''}>fx Power Fx</option>
+    </select>`;
+
+    let sourceInputHtml;
+    if (isPowerFx) {
+      const previewId = `pfx-preview-${step.id.replace(/[^a-z0-9]/gi, '-')}-${i}`;
+      const inputId   = `pfx-input-${step.id.replace(/[^a-z0-9]/gi, '-')}-${i}`;
+      const pfxPreview = previewPowerFxValue(powerFxExpr, step, state);
+      sourceInputHtml = `<div style="display:flex;align-items:center;gap:4px">
+        <input id="${escAttr(inputId)}" value="${escAttr(powerFxExpr)}"
+          placeholder='e.g. &quot;Customer &quot; &amp; Today()'
+          title="Power Fx expression — as used in BC page scripting"
+          style="font-size:11px;font-family:monospace;flex:1;min-width:0"
+          onchange="updateInjectPowerFxExpr('${escAttr(step.id)}', ${i}, this.value)"
+          oninput="updatePowerFxPreview(this, '${escAttr(previewId)}', '${escAttr(step.id)}')">
+        <button type="button"
+          title="Power Fx helper — click to build your expression"
+          onclick="openPowerFxHelper('${escAttr(inputId)}', '${escAttr(previewId)}', '${escAttr(step.id)}')"
+          style="flex-shrink:0;width:22px;height:22px;padding:0;font-size:11px;font-weight:700;
+                 border-radius:50%;border:1px solid var(--api-border);background:var(--api-light);
+                 color:var(--api-color);cursor:pointer;line-height:1;display:inline-flex;
+                 align-items:center;justify-content:center">fx</button>
+      </div><div
+        id="${escAttr(previewId)}"
+        title="Preview — value computed fresh on each run"
+        style="font-size:10px;color:var(--api-color);font-family:monospace;margin-top:2px;
+               padding:2px 5px;background:var(--api-light);border-radius:3px;
+               overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+        ${escHtml(pfxPreview || '\u2014')}
+      </div>`;
+    } else {
+      const sourceOpts = availableCaptures.map(c => {
+        const val = `{capture.${c.stepId}.${c.varName}}`;
+        return `<option value="${escAttr(val)}" ${val === ref ? 'selected' : ''}>${escHtml(c.varName)} (${escHtml(c.stepId)})</option>`;
+      }).join('');
+      const extraSourceOpt = (ref && !availableCaptures.some(c => `{capture.${c.stepId}.${c.varName}}` === ref))
+        ? `<option value="${escAttr(ref)}" selected>${escHtml(ref)}</option>` : '';
+      sourceInputHtml = `<select onchange="updateInject('${escAttr(step.id)}', ${i}, 'value', this.value)" style="width:100%">
+        <option value="">-- source --</option>
+        ${extraSourceOpt}${sourceOpts}
+      </select>`;
+    }
 
     return `<tr>
       <td>${paramCell}</td>
-      <td><select onchange="updateInject('${escAttr(step.id)}', ${i}, 'value', this.value)">
-        <option value="">-- source --</option>
-        ${extraSourceOpt}${sourceOpts}
-      </select></td>
+      <td style="min-width:160px">
+        <div style="display:flex;flex-direction:column">
+          ${typeSel}
+          ${sourceInputHtml}
+        </div>
+      </td>
       <td class="remove-row" onclick="removeInject('${escAttr(step.id)}', ${i})">&times;</td>
     </tr>`;
   }).join('');
 
-  // Determine if "+ Add" should be shown (when captures exist from earlier steps)
-  const canAddInject = availableCaptures.length > 0;
+  // Allow adding injects when parameters are defined (can use Power Fx) or captures exist
+  const canAddInject = uniqueParams.length > 0 || availableCaptures.length > 0;
 
   const companyOptions = state.companies.map(c =>
     `<option value="${escAttr(c)}" ${step.company === c ? 'selected' : ''}>${escHtml(c)}</option>`
@@ -2154,6 +2494,10 @@ function renderPropertiesReplay(step) {
     <div class="field-group">
       <label>Step Name</label>
       <input value="${escAttr(step.name)}" onchange="updateStepField('${escAttr(step.id)}', 'name', this.value)">
+    </div>
+    <div class="field-group">
+      <label>Description <small style="font-weight:400;color:var(--text-muted)">&#8212; shown on canvas card</small></label>
+      <textarea rows="2" onchange="updateStepField('${escAttr(step.id)}', 'description', this.value)" placeholder="Short description of what this step does...">${escHtml(step.description || '')}</textarea>
     </div>
     <div class="field-group">
       <label>User Role</label>
@@ -2209,14 +2553,14 @@ function renderPropertiesReplay(step) {
     <div class="mt-4">
       <label class="flex justify-between items-center">
         <strong>Injects</strong>
-        ${canAddInject ? `<span class="add-row-btn" onclick="addInject('${escAttr(step.id)}')" title="Map a captured value to a script parameter">+ Add mapping</span>` : ''}
+        ${canAddInject ? `<span class="add-row-btn" onclick="addInject('${escAttr(step.id)}')" title="Map a captured or Power Fx value to a script parameter">+ Add mapping</span>` : ''}
       </label>
-      <span class="text-sm text-muted">Map captured values from earlier steps to this script's parameters.</span>
-      ${!availableCaptures.length ? '<div class="text-sm text-muted mt-2">No captures available from earlier steps.</div>' : ''}
+      <span class="text-sm text-muted">Pass captured values or Power Fx expressions to this script's parameters.</span>
+      ${!availableCaptures.length ? '<div class="text-sm text-muted mt-2">No captures from earlier steps — use <strong>fx Power Fx</strong> source type to create dynamic values at runtime.</div>' : ''}
       ${injectRows ? `<table class="kv-table mt-2">
-        <tr><th>Parameter${!hasParams ? ' (free text)' : ''}</th><th>Source (captured value)</th><th></th></tr>
+        <tr><th>Parameter${!hasParams ? ' (free text)' : ''}</th><th>Source</th><th></th></tr>
         ${injectRows}
-      </table>` : (availableCaptures.length ? '<div class="text-sm text-muted mt-2">No mappings defined. Click <strong>+ Add mapping</strong> to connect a captured value to this step.</div>' : '')}
+      </table>` : (availableCaptures.length || uniqueParams.length ? '<div class="text-sm text-muted mt-2">No mappings yet. Click <strong>+ Add mapping</strong> to connect a value to this step.</div>' : '')}
     </div>
 
     <div class="mt-4 flex gap-2">
@@ -2225,6 +2569,172 @@ function renderPropertiesReplay(step) {
       <button class="btn-sm btn-danger" onclick="removeStep('${escAttr(step.id)}')" style="margin-left:auto">Delete</button>
     </div>
   `;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   POWER FX INJECT HELPERS
+   ════════════════════════════════════════════════════════════════════ */
+
+/** Helper to format date tokens — used by _pfxFormatText preview. */
+function formatDateToken(d, fmt) {
+  return fmt
+    .replace('yyyy', d.getFullYear())
+    .replace('yy',   String(d.getFullYear()).slice(-2))
+    .replace('MM',   String(d.getMonth() + 1).padStart(2, '0'))
+    .replace('M',    String(d.getMonth() + 1))
+    .replace('dd',   String(d.getDate()).padStart(2, '0'))
+    .replace('d',    String(d.getDate()))
+    .replace('HH',   String(d.getHours()).padStart(2, '0'))
+    .replace('mm',   String(d.getMinutes()).padStart(2, '0'))
+    .replace('ss',   String(d.getSeconds()).padStart(2, '0'));
+}
+
+/** Switch an inject row between "capture" and "powerfx" source types. */
+function setInjectType(stepId, index, sourceType) {
+  const step = state.workflow.steps.find(s => s.id === stepId);
+  if (!step) return;
+  const entries = Object.entries(step.inject || {});
+  if (index >= entries.length) return;
+  if (sourceType === 'powerfx') entries[index][1] = '{powerfx:}';
+  else entries[index][1] = '';
+  step.inject = Object.fromEntries(entries);
+  renderProperties();
+}
+
+/** Update the expression inside a {powerfx:...} inject value without full re-render. */
+function updateInjectPowerFxExpr(stepId, index, expr) {
+  const step = state.workflow.steps.find(s => s.id === stepId);
+  if (!step) return;
+  const entries = Object.entries(step.inject || {});
+  if (index >= entries.length) return;
+  entries[index][1] = `{powerfx:${expr}}`;
+  step.inject = Object.fromEntries(entries);
+  renderCanvas();
+}
+
+/** Live-update the Power Fx preview badge. */
+function updatePowerFxPreview(inputEl, previewId, stepId) {
+  const el = document.getElementById(previewId);
+  const step = state.workflow.steps.find(s => s.id === stepId);
+  if (el) el.textContent = previewPowerFxValue(inputEl.value, step, state) || '\u2014';
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   POWER FX EXPRESSION EVALUATOR  (client-side preview simulation)
+   Mirrors the PowerShell Resolve-PowerFxExpression function.
+   Supports:  "string" & concatenation, Today(), Now(), Text(val,fmt),
+              Rand(), RandBetween(min,max), GUID(),
+              Clipboard.'stepId.field' references, + - arithmetic.
+   ──────────────────────────────────────────────────────────────────── */
+
+function previewPowerFxValue(expr, step, st) {
+  if (!expr || !expr.trim()) return '\u2014';
+  try {
+    // Tokenise on &, but not inside quotes
+    const parts = _pfxSplitConcat(expr);
+    const evaluated = parts.map(p => _pfxEvalPart(p.trim(), step, st));
+    return evaluated.join('');
+  } catch (e) {
+    return '\u26a0 ' + (e.message || 'Error');
+  }
+}
+
+/** Split a Power Fx expression on & respecting double-quoted strings. */
+function _pfxSplitConcat(expr) {
+  const parts = []; let cur = '', inStr = false;
+  for (let i = 0; i < expr.length; i++) {
+    const ch = expr[i];
+    if (ch === '"') { inStr = !inStr; cur += ch; continue; }
+    if (ch === '&' && !inStr) { parts.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  parts.push(cur);
+  return parts;
+}
+
+/** Evaluate a single Power Fx sub-expression (one part between & operators). */
+function _pfxEvalPart(part, step, st) {
+  if (!part) return '';
+
+  // String literal: "..."
+  if (/^"([^"]*)"$/.test(part)) return part.slice(1, -1);
+
+  // Today() — returns yyyy-MM-dd
+  if (/^Today\(\)$/i.test(part)) {
+    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  // Now() — returns yyyy-MM-dd HH:mm:ss
+  if (/^Now\(\)$/i.test(part)) {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+  }
+
+  // Text(value, "format")
+  const textMatch = part.match(/^Text\(\s*(.+?)\s*,\s*"([^"]*)"\s*\)$/i);
+  if (textMatch) {
+    const inner = _pfxEvalPart(textMatch[1].trim(), step, st);
+    return _pfxFormatText(inner, textMatch[2]);
+  }
+
+  // RandBetween(min, max)
+  const rbMatch = part.match(/^RandBetween\(\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
+  if (rbMatch) {
+    const lo = parseInt(rbMatch[1]), hi = parseInt(rbMatch[2]);
+    return String(lo + Math.floor(Math.random() * (hi - lo + 1)));
+  }
+
+  // Rand() — 0..1
+  if (/^Rand\(\)$/i.test(part)) return Math.random().toFixed(4);
+
+  // GUID()
+  if (/^GUID\(\)$/i.test(part)) return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+
+  // Clipboard.'stepId.fieldName'  — resolve from captures
+  const clipMatch = part.match(/^Clipboard\.'([^']+)'$/i);
+  if (clipMatch) {
+    const ref = clipMatch[1];
+    // Try to resolve from earlier steps' captures
+    if (step && st) {
+      for (const s of st.workflow.steps) {
+        if (s.id === step.id) break;
+        for (const [k] of Object.entries(s.capture || {})) {
+          if (`${s.id}.${k}` === ref || k === ref) return `[${k}]`;
+        }
+      }
+    }
+    return `[${ref}]`;
+  }
+
+  // Arithmetic:  expr + N  or  expr - N
+  const arithMatch = part.match(/^(.+?)\s*(\+|-)\s*(\d+)$/);
+  if (arithMatch) {
+    const left = _pfxEvalPart(arithMatch[1].trim(), step, st);
+    const op = arithMatch[2], right = parseInt(arithMatch[3]);
+    const leftNum = parseFloat(left);
+    if (!isNaN(leftNum)) return String(op === '+' ? leftNum + right : leftNum - right);
+    return `${left}${op}${right}`;
+  }
+
+  // Number literal
+  if (/^\d+(\.\d+)?$/.test(part)) return part;
+
+  // Unknown — return as-is
+  return part;
+}
+
+/** Simple Power Fx Text() format simulation. */
+function _pfxFormatText(value, fmt) {
+  // If value looks like a date string, format it
+  const d = new Date(value);
+  if (!isNaN(d.getTime()) && fmt) return formatDateToken(d, fmt);
+  // Numeric padding:  "0000" → pad to length
+  if (/^0+$/.test(fmt) && !isNaN(parseFloat(value))) {
+    return String(Math.round(parseFloat(value))).padStart(fmt.length, '0');
+  }
+  return value;
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -2407,7 +2917,8 @@ function addInject(stepId) {
 
   // Pick first unmapped parameter and first available capture
   const paramKey = unmapped.length ? unmapped[0] : `param_${usedParams.length + 1}`;
-  const sourceVal = available.length ? `{capture.${available[0].stepId}.${available[0].varName}}` : '';
+  // Default to Power Fx source when no captures are available from earlier steps
+  const sourceVal = available.length ? `{capture.${available[0].stepId}.${available[0].varName}}` : '{powerfx:}';
   step.inject[paramKey] = sourceVal;
   renderProperties();
 }
@@ -2463,11 +2974,13 @@ function importWorkflow() {
         if (file.name === 'workflow.json' || data.steps) {
           state.workflow.name = data.name || '';
           state.workflow.description = data.description || '';
+          state.workflow.catalog = data.catalog || null;
           state.workflow.bc_url = data.bc_url || '';
           state.workflow.steps = (data.steps || []).map(s => {
             const step = {
               id: s.id || '',
               name: s.name || '',
+              description: s.description || '',
               user: s.user || '',
               depends_on: s.depends_on || null
             };
@@ -2527,6 +3040,12 @@ function importWorkflow() {
           renderUsers();
           toast('Loaded users config', 'success');
         }
+
+        if (file.name === 'catalog.json' || data.value_chains) {
+          state.catalog = data;
+          populateCatalogDropdowns();
+          toast('Loaded catalog.json', 'success');
+        }
       } catch (err) {
         toast(`Error reading ${file.name}: ${err.message}`, 'error');
       }
@@ -2541,12 +3060,20 @@ function importWorkflow() {
    ════════════════════════════════════════════════════════════════════ */
 
 function buildWorkflowJson() {
-  return {
+  const wf = {
     name: state.workflow.name,
     description: state.workflow.description,
-    bc_url: state.workflow.bc_url,
-    steps: state.workflow.steps.map(s => {
+  };
+  if (state.workflow.catalog && (state.workflow.catalog.value_chain || state.workflow.catalog.type || state.workflow.catalog.process_flow)) {
+    wf.catalog = {};
+    if (state.workflow.catalog.value_chain) wf.catalog.value_chain = state.workflow.catalog.value_chain;
+    if (state.workflow.catalog.type) wf.catalog.type = state.workflow.catalog.type;
+    if (state.workflow.catalog.process_flow) wf.catalog.process_flow = state.workflow.catalog.process_flow;
+  }
+  wf.bc_url = state.workflow.bc_url;
+  wf.steps = state.workflow.steps.map(s => {
       const step = { id: s.id, name: s.name, user: s.user };
+      if (s.description) step.description = s.description;
       if (s.type === 'bc-api') {
         step.type = 'bc-api';
         step.method = s.method || 'GET';
@@ -2569,8 +3096,8 @@ function buildWorkflowJson() {
       if (s.depends_on) step.depends_on = s.depends_on;
       if (s.company) step.company = s.company;
       return step;
-    })
-  };
+    });
+  return wf;
 }
 
 function buildUsersJson() {
@@ -2960,6 +3487,15 @@ async function openProject(name, hasWorkflow) {
       }
     } catch { /* users file optional */ }
 
+    // Auto-load catalog.json if available
+    try {
+      const cres = await fetch('/api/catalog');
+      if (cres.ok) {
+        state.catalog = await cres.json();
+        populateCatalogDropdowns();
+      }
+    } catch { /* catalog optional */ }
+
     toast(`Loaded "${name}"`, 'success');
   } else {
     // Fresh start in this project
@@ -3017,6 +3553,7 @@ function applyLoadedWorkflow(wf) {
   clearWorkflowState();
   state.workflow.name = wf.name || '';
   state.workflow.description = wf.description || '';
+  state.workflow.catalog = wf.catalog || null;
   state.workflow.bc_url = wf.bc_url || '';
   state.workflow.steps = (wf.steps || []).map(s => {
     const step = {
@@ -3112,6 +3649,98 @@ function toast(msg, type = 'info') {
   setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3000);
 }
 
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !document.getElementById('pfx-helper-overlay').classList.contains('hidden')) {
+    closePowerFxHelper();
+  }
+});
+
+/* ════════════════════════════════════════════════════════════════════
+   POWER FX EXPRESSION HELPER
+   ════════════════════════════════════════════════════════════════════ */
+
+let _pfxTargetInputId   = null;
+let _pfxTargetPreviewId = null;
+let _pfxStepId          = null;
+
+function openPowerFxHelper(inputId, previewId, stepId) {
+  _pfxTargetInputId   = inputId;
+  _pfxTargetPreviewId = previewId;
+  _pfxStepId          = stepId;
+  const src = document.getElementById(inputId);
+  const fld = document.getElementById('pfx-formula');
+  if (fld) fld.value = src ? src.value : '';
+  // Populate Clipboard chips from earlier steps' captures
+  _pfxPopulateClipboardChips(stepId);
+  pfxRefreshPreview();
+  document.getElementById('pfx-helper-overlay').classList.remove('hidden');
+  if (fld) setTimeout(() => fld.focus(), 50);
+}
+
+function _pfxPopulateClipboardChips(stepId) {
+  const container = document.getElementById('pfx-clipboard-chips');
+  if (!container) return;
+  const chips = [];
+  for (const s of state.workflow.steps) {
+    if (s.id === stepId) break;
+    for (const [k] of Object.entries(s.capture || {})) {
+      const ref = `${s.id}.${k}`;
+      chips.push(`<button class="gh-chip" onclick="pfxInsert(&quot;Clipboard.'${ref}'&quot;)" title="From step ${s.id}">${k} (${s.id})</button>`);
+    }
+  }
+  container.innerHTML = chips.length
+    ? chips.join('')
+    : '<span style="font-size:11px;color:var(--text-muted);font-style:italic">No captures available from earlier steps.</span>';
+}
+
+function closePowerFxHelper() {
+  document.getElementById('pfx-helper-overlay').classList.add('hidden');
+}
+
+function applyPowerFxHelper() {
+  const formula = document.getElementById('pfx-formula')?.value ?? '';
+  const src = _pfxTargetInputId ? document.getElementById(_pfxTargetInputId) : null;
+  if (src) {
+    src.value = formula;
+    src.dispatchEvent(new Event('change', { bubbles: true }));
+    const prev = _pfxTargetPreviewId ? document.getElementById(_pfxTargetPreviewId) : null;
+    const step = state.workflow.steps.find(s => s.id === _pfxStepId);
+    if (prev) prev.textContent = previewPowerFxValue(formula, step, state) || '\u2014';
+  }
+  closePowerFxHelper();
+}
+
+function pfxRefreshPreview() {
+  const formula = document.getElementById('pfx-formula')?.value ?? '';
+  const el = document.getElementById('pfx-preview');
+  const step = state.workflow.steps.find(s => s.id === _pfxStepId);
+  if (el) el.textContent = previewPowerFxValue(formula, step, state) || '\u2014';
+}
+
+function pfxInsert(token) {
+  const el = document.getElementById('pfx-formula');
+  if (!el) return;
+  const start = el.selectionStart ?? el.value.length;
+  const end   = el.selectionEnd   ?? el.value.length;
+  el.value = el.value.slice(0, start) + token + el.value.slice(end);
+  el.focus();
+  const cur = start + token.length;
+  el.setSelectionRange(cur, cur);
+  pfxRefreshPreview();
+}
+
+function pfxSetFormula(formula) {
+  const el = document.getElementById('pfx-formula');
+  if (el) { el.value = formula; el.focus(); }
+  pfxRefreshPreview();
+}
+
+function pfxClearFormula() {
+  const el = document.getElementById('pfx-formula');
+  if (el) { el.value = ''; el.focus(); }
+  pfxRefreshPreview();
+}
+
 /* ════════════════════════════════════════════════════════════════════
    INIT  — Show project picker on load
    ════════════════════════════════════════════════════════════════════ */
@@ -3130,10 +3759,18 @@ window.addEventListener('message', function(evt) {
 
   // Parent app asks us to export the current workflow back to it
   if (msg.type === 'request-export') {
-    const issues = validate();
-    if (issues.errors.length) {
-      showValidationErrors(issues.errors);
-      evt.source.postMessage({ type: 'export-error', error: 'Validation failed: ' + issues.errors.join(', ') }, evt.origin || '*');
+    var silent = msg.silent === true;
+    if (!silent) {
+      var issues = validate();
+      if (issues.errors.length) {
+        showValidationErrors(issues.errors);
+        evt.source.postMessage({ type: 'export-error', error: 'Validation failed: ' + issues.errors.join(', ') }, evt.origin || '*');
+        return;
+      }
+    }
+    // Skip export if workflow has no name (nothing loaded yet)
+    if (!state.workflow.name) {
+      evt.source.postMessage({ type: 'export-error', error: 'No workflow loaded' }, evt.origin || '*');
       return;
     }
 
@@ -3176,20 +3813,21 @@ window.addEventListener('message', function(evt) {
   // Parent app pushes a workflow.json for us to load into the designer
   if (msg.type === 'load-workflow') {
     const wf = msg.workflow;
-    if (!wf || !wf.steps) return;
 
-    applyLoadedWorkflow(wf);
+    if (wf && wf.steps) {
+      applyLoadedWorkflow(wf);
+    }
 
     if (msg.project) {
       state.currentProject = msg.project;
-      activateProject(msg.project);
+      activateProject(msg.project, msg.environment || null);
     } else {
       renderCanvas();
       renderUsers();
       renderScripts();
     }
 
-    toast('Workflow loaded from project', 'success');
+    toast(wf && wf.steps ? 'Workflow loaded from project' : 'Project activated', 'success');
   }
 });
 
@@ -3241,6 +3879,332 @@ function toggleHelpAcc(id) {
 function scrollToSidebarHelp() { showHelp(); }
 
 function toggleTipsPanel() {}
+
+/* ════════════════════════════════════════════════════════════════════
+   CATALOG EDITOR
+   ════════════════════════════════════════════════════════════════════ */
+
+let _catEditNode = null; // { level:'vc'|'type'|'pf', v, t?, p? }
+
+async function showCatalogEditor() {
+  // Auto-load from server if not in memory
+  if (!state.catalog) {
+    try {
+      const res = await fetch('/api/catalog');
+      if (res.ok) { state.catalog = await res.json(); renderCatalogSidebar(); }
+    } catch { /* ignore */ }
+  }
+  // If still nothing, start with an empty catalog
+  if (!state.catalog) {
+    state.catalog = { name: '', description: '', value_chains: [] };
+  }
+  _catEditNode = null;
+  renderCatalogEditor();
+  document.getElementById('catalog-editor-overlay').classList.remove('hidden');
+}
+
+function closeCatalogEditor() {
+  document.getElementById('catalog-editor-overlay').classList.add('hidden');
+  // Sync any name/desc changes from the top fields
+  const cat = state.catalog;
+  if (cat) {
+    const nameEl = document.getElementById('cat-ed-name');
+    const descEl = document.getElementById('cat-ed-desc');
+    if (nameEl) cat.name = nameEl.value.trim();
+    if (descEl) cat.description = descEl.value.trim();
+  }
+  renderCatalogSidebar();
+}
+
+function renderCatalogEditor() {
+  const body = document.getElementById('catalog-editor-body');
+  const cat = state.catalog;
+  const cur = state.workflow.catalog || {};
+
+  let html = `<div class="cat-ed-meta">
+    <div class="field-group"><label>Catalog Name</label><input id="cat-ed-name" value="${escHtml(cat.name || '')}" placeholder="e.g. 4PS Test Catalog"></div>
+    <div class="field-group"><label>Description</label><input id="cat-ed-desc" value="${escHtml(cat.description || '')}" placeholder="Optional description"></div>
+  </div>`;
+
+  if (!cat.value_chains) cat.value_chains = [];
+
+  for (let v = 0; v < cat.value_chains.length; v++) {
+    const vc = cat.value_chains[v];
+    const vcEditing = _catEditNode && _catEditNode.level === 'vc' && _catEditNode.v === v;
+
+    html += `<div class="cat-ed-section">`;
+    html += `<div class="cat-ed-vc-header">
+      <code>${escHtml(vc.code || '?')}</code> ${escHtml(vc.name || '(unnamed)')}
+      ${vc.description ? '<span style="font-weight:400;font-size:11px;color:#aaa;margin-left:6px">' + escHtml(vc.description) + '</span>' : ''}
+      <div class="actions">
+        <button onclick="_catEditNode={level:'vc',v:${v}};renderCatalogEditor()" title="Edit">&#9998;</button>
+        <button onclick="catRemoveVc(${v})" title="Remove">&times;</button>
+      </div>
+    </div>`;
+
+    if (vcEditing) {
+      html += `<div class="cat-ed-form">
+        <input class="short" id="cat-ed-vc-code" value="${escHtml(vc.code || '')}" placeholder="Code" maxlength="10" style="text-transform:uppercase">
+        <input class="med" id="cat-ed-vc-name" value="${escHtml(vc.name || '')}" placeholder="Name">
+        <input class="med" id="cat-ed-vc-desc" value="${escHtml(vc.description || '')}" placeholder="Description (optional)">
+        <div class="form-btns"><button class="btn-primary" onclick="catSaveVc(${v})">Done</button></div>
+      </div>`;
+    }
+
+    html += `<div class="cat-ed-vc-body">`;
+
+    for (let t = 0; t < (vc.types || []).length; t++) {
+      const type = vc.types[t];
+      const typeEditing = _catEditNode && _catEditNode.level === 'type' && _catEditNode.v === v && _catEditNode.t === t;
+
+      html += `<div class="cat-ed-type-block">`;
+      html += `<div class="cat-ed-type-header">
+        <code>${escHtml(vc.code)}-${escHtml(type.code || '?')}</code> ${escHtml(type.name || '(unnamed)')}
+        ${type.description ? '<span style="font-weight:400;font-size:11px;color:var(--text-muted);margin-left:6px">' + escHtml(type.description) + '</span>' : ''}
+        <div class="actions">
+          <button onclick="_catEditNode={level:'type',v:${v},t:${t}};renderCatalogEditor()" title="Edit">&#9998;</button>
+          <button onclick="catRemoveType(${v},${t})" title="Remove">&times;</button>
+        </div>
+      </div>`;
+
+      if (typeEditing) {
+        html += `<div class="cat-ed-form">
+          <input class="short" id="cat-ed-type-code" value="${escHtml(type.code || '')}" placeholder="Code" maxlength="10" style="text-transform:uppercase">
+          <input class="med" id="cat-ed-type-name" value="${escHtml(type.name || '')}" placeholder="Name">
+          <input class="med" id="cat-ed-type-desc" value="${escHtml(type.description || '')}" placeholder="Description (optional)">
+          <div class="form-btns"><button class="btn-primary" onclick="catSaveType(${v},${t})">Done</button></div>
+        </div>`;
+      }
+
+      for (let p = 0; p < (type.process_flows || []).length; p++) {
+        const pf = type.process_flows[p];
+        const pfEditing = _catEditNode && _catEditNode.level === 'pf' && _catEditNode.v === v && _catEditNode.t === t && _catEditNode.p === p;
+        const isActive = cur.value_chain === vc.code && cur.type === type.code && cur.process_flow === pf.code;
+        const activeBadge = isActive
+          ? '<span style="display:inline-block;padding:0 5px;border-radius:3px;background:var(--primary-light);color:var(--primary);font-size:10px;font-weight:600;margin-left:4px">CURRENT</span>'
+          : '';
+
+        html += `<div class="cat-ed-pf-row${isActive ? ' current' : ''}">
+          <code>${escHtml(vc.code)}-${escHtml(type.code)}-${escHtml(pf.code || '?')}</code>
+          <span style="flex:1">${escHtml(pf.name || '(unnamed)')}</span>
+          ${activeBadge}
+          <span class="pf-path">${escHtml(pf.workflow_path || '')}</span>
+          <div class="actions">
+            <button onclick="_catEditNode={level:'pf',v:${v},t:${t},p:${p}};renderCatalogEditor()" title="Edit">&#9998;</button>
+            <button onclick="catRemovePf(${v},${t},${p})" title="Remove">&times;</button>
+          </div>
+        </div>`;
+
+        if (pfEditing) {
+          html += `<div class="cat-ed-form" style="border-top:1px solid var(--border)">
+            <input class="short" id="cat-ed-pf-code" value="${escHtml(pf.code || '')}" placeholder="Code" maxlength="10" style="text-transform:uppercase">
+            <input class="med" id="cat-ed-pf-name" value="${escHtml(pf.name || '')}" placeholder="Name">
+            <input class="med" id="cat-ed-pf-desc" value="${escHtml(pf.description || '')}" placeholder="Description (optional)">
+            <input class="wide" id="cat-ed-pf-path" value="${escHtml(pf.workflow_path || '')}" placeholder="Workflow path (e.g. ./PO Approval Workflow)">
+            <div class="form-btns"><button class="btn-primary" onclick="catSavePf(${v},${t},${p})">Done</button></div>
+          </div>`;
+        }
+      }
+
+      html += `<div class="cat-ed-add" onclick="catAddPf(${v},${t})">+ Process Flow</div>`;
+      html += `</div>`; // type-block
+    }
+
+    html += `<div class="cat-ed-add" onclick="catAddType(${v})">+ Type</div>`;
+    html += `</div>`; // vc-body
+    html += `</div>`; // section
+  }
+
+  html += `<div class="cat-ed-add" style="padding:8px 0;font-size:13px;font-weight:600" onclick="catAddVc()">+ Value Chain</div>`;
+
+  body.innerHTML = html;
+}
+
+// --- CRUD operations ---
+
+function _catSyncMeta() {
+  const nameEl = document.getElementById('cat-ed-name');
+  const descEl = document.getElementById('cat-ed-desc');
+  if (nameEl) state.catalog.name = nameEl.value.trim();
+  if (descEl) state.catalog.description = descEl.value.trim();
+}
+
+function catAddVc() {
+  _catSyncMeta();
+  state.catalog.value_chains.push({ code: '', name: '', description: '', types: [] });
+  const idx = state.catalog.value_chains.length - 1;
+  _catEditNode = { level: 'vc', v: idx };
+  renderCatalogEditor();
+}
+
+function catSaveVc(v) {
+  _catSyncMeta();
+  const vc = state.catalog.value_chains[v];
+  vc.code = (document.getElementById('cat-ed-vc-code').value || '').toUpperCase().trim();
+  vc.name = document.getElementById('cat-ed-vc-name').value.trim();
+  vc.description = document.getElementById('cat-ed-vc-desc').value.trim();
+  if (!vc.code) { toast('Code is required', 'error'); return; }
+  _catEditNode = null;
+  renderCatalogEditor();
+}
+
+function catRemoveVc(v) {
+  const vc = state.catalog.value_chains[v];
+  if (!confirm(`Remove value chain "${vc.code || '(unnamed)'}" and all its types/process flows?`)) return;
+  _catSyncMeta();
+  state.catalog.value_chains.splice(v, 1);
+  _catEditNode = null;
+  renderCatalogEditor();
+}
+
+function catAddType(v) {
+  _catSyncMeta();
+  if (!state.catalog.value_chains[v].types) state.catalog.value_chains[v].types = [];
+  state.catalog.value_chains[v].types.push({ code: '', name: '', description: '', process_flows: [] });
+  const idx = state.catalog.value_chains[v].types.length - 1;
+  _catEditNode = { level: 'type', v, t: idx };
+  renderCatalogEditor();
+}
+
+function catSaveType(v, t) {
+  _catSyncMeta();
+  const type = state.catalog.value_chains[v].types[t];
+  type.code = (document.getElementById('cat-ed-type-code').value || '').toUpperCase().trim();
+  type.name = document.getElementById('cat-ed-type-name').value.trim();
+  type.description = document.getElementById('cat-ed-type-desc').value.trim();
+  if (!type.code) { toast('Code is required', 'error'); return; }
+  _catEditNode = null;
+  renderCatalogEditor();
+}
+
+function catRemoveType(v, t) {
+  const type = state.catalog.value_chains[v].types[t];
+  if (!confirm(`Remove type "${type.code || '(unnamed)'}" and all its process flows?`)) return;
+  _catSyncMeta();
+  state.catalog.value_chains[v].types.splice(t, 1);
+  _catEditNode = null;
+  renderCatalogEditor();
+}
+
+function catAddPf(v, t) {
+  _catSyncMeta();
+  if (!state.catalog.value_chains[v].types[t].process_flows) state.catalog.value_chains[v].types[t].process_flows = [];
+  state.catalog.value_chains[v].types[t].process_flows.push({ code: '', name: '', description: '', workflow_path: '' });
+  const idx = state.catalog.value_chains[v].types[t].process_flows.length - 1;
+  _catEditNode = { level: 'pf', v, t, p: idx };
+  renderCatalogEditor();
+}
+
+function catSavePf(v, t, p) {
+  _catSyncMeta();
+  const pf = state.catalog.value_chains[v].types[t].process_flows[p];
+  pf.code = (document.getElementById('cat-ed-pf-code').value || '').toUpperCase().trim();
+  pf.name = document.getElementById('cat-ed-pf-name').value.trim();
+  pf.description = document.getElementById('cat-ed-pf-desc').value.trim();
+  pf.workflow_path = document.getElementById('cat-ed-pf-path').value.trim();
+  if (!pf.code) { toast('Code is required', 'error'); return; }
+  _catEditNode = null;
+  renderCatalogEditor();
+}
+
+function catRemovePf(v, t, p) {
+  const pf = state.catalog.value_chains[v].types[t].process_flows[p];
+  if (!confirm(`Remove process flow "${pf.code || '(unnamed)'}"?`)) return;
+  _catSyncMeta();
+  state.catalog.value_chains[v].types[t].process_flows.splice(p, 1);
+  _catEditNode = null;
+  renderCatalogEditor();
+}
+
+// --- Save / Export / Import / New ---
+
+async function saveCatalogToServer() {
+  _catSyncMeta();
+  try {
+    const res = await fetch('/api/catalog', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state.catalog, null, 2)
+    });
+    if (res.ok) {
+      toast('Catalog saved to server', 'success');
+      renderCatalogSidebar();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      toast(`Save failed: ${data.error || res.statusText}`, 'error');
+    }
+  } catch (e) {
+    toast(`Save error: ${e.message}`, 'error');
+  }
+}
+
+function exportCatalog() {
+  _catSyncMeta();
+  const blob = new Blob([JSON.stringify(state.catalog, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'catalog.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Catalog exported', 'success');
+}
+
+function createNewCatalog() {
+  if (state.catalog && state.catalog.value_chains && state.catalog.value_chains.length) {
+    if (!confirm('This will replace the current catalog. Continue?')) return;
+  }
+  state.catalog = { name: '', description: '', value_chains: [] };
+  _catEditNode = null;
+  renderCatalogEditor();
+  renderCatalogSidebar();
+  toast('New empty catalog created', 'info');
+}
+
+function importCatalogFile() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data.value_chains) { toast('Invalid catalog — missing value_chains', 'error'); return; }
+      state.catalog = data;
+      _catEditNode = null;
+      renderCatalogEditor();
+      renderCatalogSidebar();
+      toast('Catalog imported', 'success');
+    } catch (err) {
+      toast(`Error: ${err.message}`, 'error');
+    }
+  };
+  input.click();
+}
 </script>
+
+<!-- Catalog Editor Modal -->
+<div class="modal-overlay hidden" id="catalog-editor-overlay" onclick="if(event.target===this)closeCatalogEditor()">
+  <div class="modal" style="max-width:860px;max-height:85vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="display:flex;align-items:center;gap:10px">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="var(--primary)" stroke-width="1.5"><path d="M2 3h4l1 2h7v8H2V3z"/></svg>
+      <span>Catalog Editor</span>
+      <span style="flex:1"></span>
+      <span style="font-size:12px;color:var(--text-muted)">Waardeketen &gt; Type &gt; Procesflow</span>
+    </div>
+    <div class="modal-body" id="catalog-editor-body" style="overflow-y:auto;flex:1;padding:16px">
+      <!-- populated by renderCatalogEditor() -->
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;flex-wrap:wrap">
+      <button onclick="importCatalogFile()" title="Import a catalog.json file">Import</button>
+      <button onclick="exportCatalog()" title="Download catalog as JSON">Export</button>
+      <button onclick="createNewCatalog()" title="Start with an empty catalog">New Empty</button>
+      <span style="flex:1"></span>
+      <button class="btn-primary" onclick="saveCatalogToServer()" title="Save catalog.json to server">Save to Server</button>
+      <button onclick="closeCatalogEditor()">Close</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

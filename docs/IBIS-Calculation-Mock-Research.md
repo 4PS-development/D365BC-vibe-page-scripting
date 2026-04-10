@@ -1,6 +1,6 @@
 # Research: Mocking the IBIS Calculation Integration
 
-> **Date:** 2026-03-12  
+> **Date:** 2026-03-12 | **Updated:** 2026-03-26  
 > **Epic:** [FPS-8992 — Phase 2 IBIS API Integration](https://4ps.atlassian.net/browse/FPS-8992)  
 > **Related Jira:** [FPS-13330](https://4ps.atlassian.net/browse/FPS-13330), [FPS-13331](https://4ps.atlassian.net/browse/FPS-13331)  
 > **Scope Documents:** DR-788 (Phase 2), DR-972 (Infra elements), DR-973 (Construction elements)
@@ -17,6 +17,8 @@
 6. [Status Workflow & State Machine](#6-status-workflow--state-machine)
 7. [IBIS-Specific Domain Mapping](#7-ibis-specific-domain-mapping)
    - [7.4 Budget Import — XMLport Mapping](#74-budget-import--xmlport-mapping)
+   - [7.5 XML Format Analysis — Available Sample Files](#75-xml-format-analysis--available-sample-files)
+   - [7.6 Real API Call Examples (FPSTEST018)](#76-real-api-call-examples-fpstest018)
 8. [Mock Scope & Strategy](#8-mock-scope--strategy)
 9. [Test Scenario Specifications — Happy Flow](#9-test-scenario-specifications--happy-flow)
 10. [Sample Data Requirements](#10-sample-data-requirements)
@@ -34,6 +36,14 @@ The IBIS Calculation Integration connects **IBIS** (Brink Software's estimation 
 **Phase 2** extends the integration by making additional data tables available — specifically **elements** (base elements and project elements) — so IBIS can retrieve cost carrier and element mappings from 4PS. This enables smoother joint implementations for both infrastructure (Infra) and construction (Bouw) customers.
 
 This document researches what is needed to create an **IBIS mock** (test harness) that simulates IBIS's behaviour to **test the 4PS Construct BC API endpoints**. The mock acts as IBIS — submitting calculation budgets, hosting budget files for BC to pull, and reading reference data — so 4PS developers can validate the BC-side integration logic without needing the real IBIS system.
+
+### Update 2026-03-26
+
+New source material was added to `docs/IBIS info/`, significantly advancing several open questions:
+
+- **Sample budget files obtained** — Five XML files covering all three formats (KPD/GWW, CUF, TRAD) are now available, resolving the critical blocker for test data (previously Open Question #4). See [Section 7.5](#75-xml-format-analysis--available-sample-files).
+- **Real API call examples** — Joost Huggers (4PS Functional Consultant) provided actual API request/response payloads from the **FPSTEST018 Production** environment, confirming the submission flow and revealing the real IBIS `dataUrl` pattern. See [Section 7.6](#76-real-api-call-examples-fpstest018).
+- **Test environment identified** — FPSTEST018 Production with known tenant ID, company ID, and example projects (`PR00023`, `PR00160`), partially resolving Open Questions #1 and #5.
 
 ---
 
@@ -55,7 +65,7 @@ BC acts as **both API provider and API consumer**:
 | Direction | Pattern | Description |
 |-----------|---------|-------------|
 | **IBIS → 4PS** | REST POST | IBIS submits a calculation budget to BC's `/calculations` endpoint |
-| **4PS → IBIS** | HTTP GET (Pull) | BC fetches the actual budget file content from IBIS's Azure-hosted endpoint via `dataUrl` + bearer token |
+| **4PS → IBIS** | HTTP GET (Pull) | BC fetches the actual budget file content from IBIS's data service endpoint via `dataUrl` + bearer token |
 | **IBIS → 4PS** | REST GET | IBIS reads reference data (elements, projects, items) from BC's read-only API endpoints |
 | **4PS → IBIS** | Status feedback | Approval/rejection status communicated back (via API status field) |
 
@@ -64,7 +74,7 @@ BC acts as **both API provider and API consumer**:
 From the project documentation:
 
 - BC endpoints require **OAuth 2.0** authentication (multi-tenant compliant)
-- IBIS stores budget files in **Azure Blob Storage**; BC retrieves them via HTTP GET with a **bearer token**
+- ~~IBIS stores budget files in **Azure Blob Storage**; BC retrieves them via HTTP GET with a **bearer token**~~ **Updated 2026-03-26:** Real data shows IBIS hosts files via its own data service at `https://dataservice.ibis.nl/public/applications/{app}/files/{fileId}?version={version}` — not Azure Blob Storage directly. The `token` field was empty in the observed FPSTEST018 data.
 - An **Azure API Management** (APIM) layer sits in front with an `Ocp-Apim-Subscription-Key` header
 - Three solution options were evaluated for URL generation and client ID/secret management (see DR-788 scope document)
 
@@ -398,6 +408,268 @@ The orchestrating codeunit is **`Import External Budget`** (`ImportExternalBudge
 
 **Source:** AL code in `4PS Estimate Budget Interface W1/app/src/xmlport/` and `4PS Estimate Budget Interface W1/app/src/codeunit/ImportExternalBudget.Codeunit.al`
 
+### 7.5 XML Format Analysis — Available Sample Files
+
+> **Added 2026-03-26** — Based on files in `docs/IBIS info/`
+
+Five sample budget files are now available, covering all three XML formats used in the IBIS integration. These files resolve the earlier blocker around test data (previously Open Question #4).
+
+#### File Inventory
+
+| File | Format | Root Element | Size | Lines | Market |
+|------|--------|-------------|------|-------|--------|
+| `voorbeeldBegroting.xml` | **TRAD (Integration)** | `<Integratie><TradbegrotingIbis>` | 354 KB | 15,495 | Construction (Bouw) |
+| `DEMO - bestek en alternatieve code TRADXML.xml` | **TRAD (Plain)** | `<Tradbegroting4>` | 278 KB | 14,520 | Construction (Bouw) |
+| `DEMO - bestek en alternatieve code CUFXML.xml` | **CUF** | `<CUF xmlns="x-schema:CufSchema.xml">` | 41 KB | 629 | Construction (Bouw) |
+| `DEMO - begroting GWW-Calc.xml` | **KPD/GWW** | `<GwwBundel xmlns="http://tempuri.org/KPDXML.xsd">` | 261 KB | 7,909 | Infrastructure (Infra) |
+| `Import Begroting GWW-Calc.xml` | **KPD/GWW** | `<GwwBundel xmlns="http://tempuri.org/KPDXML.xsd">` | 261 KB | 7,909 | Infrastructure (Infra) |
+
+#### 7.5.1 TRAD Integration Format (`voorbeeldBegroting.xml`)
+
+This is the **primary format for the mock** — it uses the `<Integratie><TradbegrotingIbis>` wrapper which is what BC's `SetCalculationType()` detection logic looks for (root element `TradbegrotingIbis` → Type = `Trad`).
+
+**Structure overview:**
+
+```xml
+<Integratie>
+  <TradbegrotingIbis>
+    <bva>...</bva>           <!-- Currency (EUR) -->
+    <bgr>                     <!-- Budget header -->
+      <nme>DemoMiguel</nme>   <!-- Project name -->
+      <vrs>17</vrs>           <!-- Version -->
+      <tpe>TRD</tpe>          <!-- Type: TRAD -->
+      <totuur>7378.57</totuur> <!-- Total hours -->
+      <ntoarb>152347.51</ntoarb>  <!-- Net labor -->
+      <ntomta>11308.79</ntomta>   <!-- Net material -->
+      <ntomte>12247.16</ntomte>   <!-- Net equipment -->
+      <ntooda>16712.39</ntooda>   <!-- Net subcontracting -->
+    </bgr>
+    <alg>...</alg>            <!-- General settings (multiple) -->
+    <bbd>...</bbd>            <!-- Begrotingsblad / markup sheets -->
+    <ulb>...</ulb>            <!-- Hourly rate definitions -->
+    <ulc>...</ulc>            <!-- Hours per element per rate -->
+    <elt>...</elt>            <!-- Elements (see below) -->
+    <!-- Budget lines follow after elements -->
+  </TradbegrotingIbis>
+</Integratie>
+```
+
+**Element structure (`<elt>` tags):**
+
+| XML Tag | Description | Maps to 4PS |
+|---------|-------------|-------------|
+| `<eltid>` | Element ID (integer) | Internal reference |
+| `<cclcde>` | Calculatiecode | Element code — maps to `baseElements.code` / `projectElements.code` |
+| `<oms>` | Omschrijving (description) | Element description |
+| `<bstcde>` | Bestekcode (specification code) | Alternative element lookup |
+| `<altcde>` | Alternatieve code | Alternative element lookup |
+| `<bwcarb>` | Bewakingscode arbeid | Cost carrier code for labor |
+| `<bwcmta>` | Bewakingscode materiaal | Cost carrier code for material |
+| `<bwcmte>` | Bewakingscode materieel | Cost carrier code for equipment |
+| `<bwcoda>` | Bewakingscode onderaanneming | Cost carrier code for subcontracting |
+| `<ntoarb>` / `<btoarb>` | Net / Gross labor costs | Budget line amounts |
+| `<ntomta>` / `<btomta>` | Net / Gross material costs | Budget line amounts |
+| `<ntomte>` / `<btomte>` | Net / Gross equipment costs | Budget line amounts |
+| `<ntooda>` / `<btooda>` | Net / Gross subcontracting costs | Budget line amounts |
+| `<totuur>` | Total hours | Budget hours |
+| `<hvh>` | Hoeveelheid (quantity) | Element quantity |
+| `<enh>` | Eenheid (unit of measure) | Unit |
+
+**Example element from `voorbeeldBegroting.xml`:**
+
+```xml
+<elt>
+  <eltid>16</eltid>
+  <cclcde>03</cclcde>
+  <oms>PEIL EN UITZETTEN</oms>
+  <dri>DRN</dri>
+  <hvh>2</hvh>
+  <bstcde>05</bstcde>
+  <altcde>03</altcde>
+  <totuur>8.75</totuur>
+  <ntoarb>180.66125</ntoarb>
+  <ntomta>24.50424</ntomta>
+  <!-- ... -->
+</elt>
+```
+
+> **Key finding:** The `cclcde` (calculatiecode) values in this file — `01`, `03`, `04`, `05`, etc. — must match element codes configured in the BC test company's Base Elements table. If they don't match, the import will fail at the element determination step.
+
+#### 7.5.2 KPD/GWW Format (`DEMO - begroting GWW-Calc.xml`)
+
+This is the **infrastructure (Infra) format**. Root element `<GwwBundel>` with namespace `http://tempuri.org/KPDXML.xsd`. BC detects `IbisVoorInfra` or GWW-related roots → Type = `Kpd`.
+
+**Structure overview:**
+
+```xml
+<GwwBundel xmlns="http://tempuri.org/KPDXML.xsd">
+  <Info><Versie>1.4</Versie></Info>
+  <Projecten>
+    <Begroting.Type>Raw Bestek</Begroting.Type>
+    <Jaarversie.Raw.Catalogus>2015-01, Release 2015-01</Jaarversie.Raw.Catalogus>
+    <Calculator>r.peereboom</Calculator>
+    <Besteknummer>NAAMLOOS</Besteknummer>
+  </Projecten>
+  <Bestekposten>                     <!-- Budget items (repeating) -->
+    <Code>100010</Code>              <!-- Item code -->
+    <Basiscode>...</Basiscode>
+    <Calculatiecode>...</Calculatiecode>
+    <Sorteercode />                  <!-- Sort code → maps to 4PS cost carrier -->
+    <Romptekst>Boren gaten...</Romptekst>
+    <Eenheid>st</Eenheid>           <!-- Unit -->
+    <Hoeveelheid>2</Hoeveelheid>    <!-- Quantity -->
+    <Kostprijs>100</Kostprijs>      <!-- Cost price -->
+    <Kosten>200</Kosten>            <!-- Total cost -->
+    <Deelposten>                    <!-- Sub-items -->
+      <Tarieven>                    <!-- Rate specifications -->
+        <Code>042110028</Code>
+        <Omschrijving>Boren rond 100mm</Omschrijving>
+        <Kostprijs>1</Kostprijs>
+      </Tarieven>
+    </Deelposten>
+  </Bestekposten>
+</GwwBundel>
+```
+
+> **Note:** The GWW format uses `<Sorteercode>` for cost carrier mapping (corresponds to `Sorteercode Ibis Infra` from Section 7.2) and `<Calculatiecode>` for element mapping. The `<Code>` field is the bestekpost (specification item) code.
+
+#### 7.5.3 CUF Format (`DEMO - bestek en alternatieve code CUFXML.xml`)
+
+An alternative construction format using the CUF XML schema.
+
+**Structure overview:**
+
+```xml
+<CUF xmlns="x-schema:CufSchema.xml" AANMAAKDATUMTIJD="2016-07-20T13:49:48">
+  <PROJECTGEGEVENS CUF_VERSIE="4.003" PROJECTNUMMER="DEMO" PROJECTNAAM="VOORBEELD BEGROTING" />
+  <SORTEERCODES SORTERING="cclcde" FUNCTIE="De code van de calculatie regel" />
+  <SORTEERCODES SORTERING="altcde" FUNCTIE="De alternatieve code" />
+  <SORTEERCODES SORTERING="bstcde" FUNCTIE="Bestekcodering" />
+  <SORTEERCODES SORTERING="bwcarb" FUNCTIE="Nacalculatiecode voor arbeid" />
+  <SORTEERCODES SORTERING="bwcmta" FUNCTIE="Nacalculatiecode voor materiaal" />
+  <SORTEERCODES SORTERING="bwcmte" FUNCTIE="Nacalculatiecode voor materieel" />
+  <SORTEERCODES SORTERING="bwcoda" FUNCTIE="Nacalculatiecode voor onderaanneming" />
+  <BEGROTING UREN="52.57" LOONKOSTEN="1087.59" MATERIAALKOSTEN="1540.79" ...>
+    <BUNDELING CODE="01" OMSCHRIJVING="GEBOUWDIMENSIES">
+      <SORTEERCODE SORTERING="altcde" WAARDE="010101" />   <!-- Alternative code -->
+      <SORTEERCODE SORTERING="bstcde" WAARDE="050505" />   <!-- Specification code -->
+      <BEGROTINGSREGEL CODE="03.11.01   t" OMSCHRIJVING="Uitzetten t.b.v. grondwerk"
+        HOEVEELHEID="1.00" UUR_NORM="0.35" UUR_TARIEF="20.647">
+        <SORTEERCODE SORTERING="cclcde" WAARDE="03.11.01   t" />
+      </BEGROTINGSREGEL>
+    </BUNDELING>
+  </BEGROTING>
+</CUF>
+```
+
+The CUF format defines sort code types (`SORTEERCODES`) at the top and references them throughout via `<SORTEERCODE SORTERING="..." WAARDE="...">` attributes. The `altcde`, `bstcde`, and `cclcde` sort codes map to element codes in 4PS — the same mapping as TRAD.
+
+#### 7.5.4 Format Selection for the Mock
+
+| Scenario | Recommended File | Reason |
+|----------|-----------------|--------|
+| **TRAD happy flow** (Bouw) | `voorbeeldBegroting.xml` | Uses the `<Integratie><TradbegrotingIbis>` wrapper that BC's detection logic expects. Contains full element hierarchy (15+ elements). |
+| **KPD happy flow** (Infra) | `DEMO - begroting GWW-Calc.xml` | GWW/KPD format with bestekposten, deelposten, and tarieven. |
+| **CUF testing** (future) | `DEMO - bestek en alternatieve code CUFXML.xml` | Smaller file (41 KB), useful for quick validation of CUF parsing. Out of scope for initial mock. |
+
+> **Action required:** Before using these files in the mock, the element codes (`cclcde` values like `01`, `03`, `04`, etc. in TRAD; `Calculatiecode` / `Sorteercode` in KPD) must be cross-referenced against the base elements configured in the target BC test environment. Mismatches will cause import errors at the element determination step.
+
+### 7.6 Real API Call Examples (FPSTEST018)
+
+> **Added 2026-03-26** — Based on email from Joost Huggers (4PS Functional Consultant, 2026-03-13). Source: `docs/IBIS info/Mail joost 13-3-2026.txt`
+
+Joost provided working API examples from the **FPSTEST018 Production** environment with real data, confirming the request/response format.
+
+#### 7.6.1 Environment Details
+
+| Property | Value |
+|----------|-------|
+| Tenant ID | `9a3ecacb-258f-4487-9e56-20acb3a16014` |
+| Environment | Production |
+| Company ID | `45734f09-c4f6-ec11-b290-90b150325075` |
+| Base URL | `https://4psconstruct.api.bc.dynamics.com/v2.0/9a3ecacb-258f-4487-9e56-20acb3a16014/Production` |
+| Example projects | `PR00023` (intern doorbelasten), `PR00160` |
+
+#### 7.6.2 GET — Retrieve a Calculation
+
+```
+GET /api/4ps/calculation/v1.1/companies({companyId})/calculations
+    ?$filter=calculationId eq 99359dce-7a5e-4a0f-bf5f-8557ab152b49
+```
+
+**Response (trimmed):**
+
+```json
+{
+  "value": [{
+    "id": "2dafd25f-4135-f011-8a93-87b6396fde5c",
+    "calculationId": "99359dce-7a5e-4a0f-bf5f-8557ab152b49",
+    "calculationVersion": "2025-05-20T06:12:05.6456817Z",
+    "projectNo": "PR00023",
+    "projectDescription": "intern doorbelasten",
+    "status": "Submitted",
+    "reasonForRejection": ""
+  }]
+}
+```
+
+#### 7.6.3 POST — Submit a New Calculation
+
+```
+POST /api/4ps/calculation/v1.1/companies({companyId})/calculations
+```
+
+**Request body:**
+
+```json
+{
+  "calculationId": "3e026d64-b89f-4685-994a-329b960b3ccb",
+  "calculationVersion": "0.1",
+  "projectNo": "PR00160"
+}
+```
+
+> **Key insight:** The POST body for `calculations` (v1.1) is minimal — just `calculationId`, `calculationVersion`, and `projectNo`. The `dataUrl` and `token` are set separately via the `calculationsExtended` (v1.0) endpoint.
+
+#### 7.6.4 GET — Retrieve Extended Calculation (with dataUrl)
+
+```
+GET /api/4ps/calculation/v1.0/companies({companyId})/calculationsExtended
+    ?$filter=systemId eq 2dafd25f-4135-f011-8a93-87b6396fde5c
+```
+
+**Response (trimmed):**
+
+```json
+{
+  "value": [{
+    "systemId": "2dafd25f-4135-f011-8a93-87b6396fde5c",
+    "fileId": "99359dce-7a5e-4a0f-bf5f-8557ab152b49",
+    "fileVersion": "2025-05-20T06:12:05.6456817Z",
+    "status": "Submitted",
+    "applicationName": "",
+    "dataUrl": "https://dataservice.ibis.nl/public/applications/calculerenvoorbouw/files/99359dce-7a5e-4a0f-bf5f-8557ab152b49?version=2025-05-20T06:12:05.6456817Z",
+    "token": ""
+  }]
+}
+```
+
+> **Key findings from the real data:**
+> - The real IBIS `dataUrl` pattern is `https://dataservice.ibis.nl/public/applications/{app}/files/{fileId}?version={version}` — **not Azure Blob Storage** as originally assumed in Section 2.3. IBIS hosts its own data service endpoint.
+> - The `token` field is empty in this example — suggesting the FPSTEST018 environment may not require bearer auth for the IBIS data service, or the token was not set for this particular submission.
+> - `calculationVersion` uses ISO 8601 timestamps as version identifiers (IBIS convention), not sequential version numbers.
+
+#### 7.6.5 Confirmed API Flow
+
+Based on Joost's email, the actual IBIS submission flow is:
+
+1. **IBIS places XML file** at its data service URL
+2. **IBIS creates a calculation record** via `POST /calculations` with `calculationId`, `calculationVersion`, `projectNo`
+3. **IBIS sets the `dataUrl`** via `PATCH /calculationsExtended({systemId})` (Joost notes: *"Waarschijnlijk zetten ze de dataURL er in met een PATCH calculationsExtended???"* — confirming this step is likely PATCH, not a second POST)
+4. **BC user** then fetches, validates, and imports the calculation via the UI
+
+> **Impact on mock:** The mock's workflow.json (Section 9.5) should use `POST /calculations` followed by `PATCH /calculationsExtended` rather than a single POST to `calculationsExtended`. This matches the real IBIS behaviour more closely.
+
 ---
 
 ## 8. Mock Scope & Strategy
@@ -630,16 +902,34 @@ This is the target `workflow.json` for the IBIS Calculation Import workflow. Pla
 
 ### 10.1 Sample Budget Files
 
-Two budget files are needed for the mock file server. These must be valid enough for BC to parse, validate, and import.
+~~Two budget files are needed for the mock file server. These must be valid enough for BC to parse, validate, and import.~~
 
-| File | Format | Root Element | Purpose |
-|------|--------|-------------|---------|
-| `trad-sample.xml` | TRAD XML | `<TradbegrotingIbis>` | Construction budget — must contain element codes matching the BC test company's base elements |
-| `kpd-sample.xml` | KPD XML | `<IbisVoorInfra>` | Infrastructure budget — element codes matching `Vrije code 1 en 2` patterns |
+> **Resolved 2026-03-26:** Sample files are now available in `docs/IBIS info/`. See [Section 7.5](#75-xml-format-analysis--available-sample-files) for full analysis.
 
-**Where to get these:** Ask QA or check the AL test codeunit (`TestCalculationAPI`) for embedded test XML snippets. Alternatively, request sanitised files from a customer implementation.
+| File | Format | Root Element | Purpose | Status |
+|------|--------|-------------|---------|--------|
+| `voorbeeldBegroting.xml` | TRAD (Integration) | `<Integratie><TradbegrotingIbis>` | Construction budget — 15,495 lines, full element hierarchy | **Available** |
+| `DEMO - begroting GWW-Calc.xml` | KPD/GWW | `<GwwBundel xmlns="http://tempuri.org/KPDXML.xsd">` | Infrastructure budget — 7,909 lines with bestekposten and tarieven | **Available** |
+| `DEMO - bestek en alternatieve code CUFXML.xml` | CUF | `<CUF xmlns="x-schema:CufSchema.xml">` | Alternative construction format — 629 lines (future use) | **Available** |
+
+**Remaining action:** Cross-reference element codes in the TRAD file (`cclcde` values: `01`, `03`, `04`, `05`, etc.) and KPD file (`Calculatiecode` / `Sorteercode`) against the base elements in the target BC test environment. Import will fail at element determination if codes don't match.
+
+**Where the files live:** Copy the selected files to the mock project's `files/` folder and rename to match the `dataUrl` patterns in `workflow.json`.
 
 ### 10.2 BC Test Environment Prerequisites
+
+> **Updated 2026-03-26:** FPSTEST018 Production has been identified as a candidate test environment.
+
+**Candidate environment (from Joost Huggers):**
+
+| Property | Value |
+|----------|-------|
+| Environment | FPSTEST018 Production |
+| Tenant ID | `9a3ecacb-258f-4487-9e56-20acb3a16014` |
+| Company ID | `45734f09-c4f6-ec11-b290-90b150325075` |
+| Base URL | `https://4psconstruct.api.bc.dynamics.com/v2.0/9a3ecacb-258f-4487-9e56-20acb3a16014/Production` |
+| Known projects | `PR00023` (intern doorbelasten), `PR00160` |
+| Confirmed APIs | `calculations` (v1.1), `calculationsExtended` (v1.0) — working with real IBIS data |
 
 The BC instance must have this data pre-configured for the happy flow to succeed:
 
@@ -666,14 +956,16 @@ The `dataUrl` in the API POST body points to one of these URLs. BC's `GetCalcula
 
 ## 11. Open Questions
 
-| # | Question | Impact | For |
-|---|----------|--------|-----|
-| 1 | Which BC test environment should the mock target? (COSMO Alpaca container, sandbox, or dedicated tenant?) | Determines base URL, auth config, and available test data | Architect |
-| 2 | Can `GetCalculationFile()`, `Validate`, and `Load` be triggered via API, or only via the BC UI? If UI-only, the `bc-replay` step requires a recorded page script | Determines if the workflow is fully API or mixed API+UI | Developer |
-| 3 | Can the mock file server on `localhost` be reached from the BC instance? For cloud BC, a tunnel (ngrok) or public URL may be needed | File server hosting approach | Architect |
-| 4 | Are sample TRAD XML and KPD XML files available that BC can successfully import? The test codeunit may contain snippets | Test data quality | QA Engineer |
-| 5 | What element codes and project numbers exist in the BC test company? Budget file content must reference valid codes | Data alignment | QA Engineer |
-| 6 | Is there an existing Entra ID app registration with permissions for the Calculation API endpoints in the test tenant? | Needed for `app-registrations.json` | Architect |
+| # | Question | Impact | For | Status |
+|---|----------|--------|-----|--------|
+| 1 | Which BC test environment should the mock target? (COSMO Alpaca container, sandbox, or dedicated tenant?) | Determines base URL, auth config, and available test data | Architect | **Partially resolved** — FPSTEST018 Production identified as candidate (see [Section 7.6.1](#761-environment-details)). Confirm this is the intended target and whether a sandbox is preferred over Production. |
+| 2 | Can `GetCalculationFile()`, `Validate`, and `Load` be triggered via API, or only via the BC UI? If UI-only, the `bc-replay` step requires a recorded page script | Determines if the workflow is fully API or mixed API+UI | Developer | Open |
+| 3 | Can the mock file server on `localhost` be reached from the BC instance? For cloud BC, a tunnel (ngrok) or public URL may be needed | File server hosting approach | Architect | Open |
+| 4 | ~~Are sample TRAD XML and KPD XML files available that BC can successfully import? The test codeunit may contain snippets~~ | ~~Test data quality~~ | ~~QA Engineer~~ | **Resolved** — Five sample files now available in `docs/IBIS info/`. See [Section 7.5](#75-xml-format-analysis--available-sample-files). Use `voorbeeldBegroting.xml` (TRAD) and `DEMO - begroting GWW-Calc.xml` (KPD). |
+| 5 | What element codes and project numbers exist in the BC test company? Budget file content must reference valid codes | Data alignment | QA Engineer | **Partially resolved** — Projects `PR00023` and `PR00160` confirmed in FPSTEST018. Element code cross-referencing still needed (see [Section 7.5.4](#754-format-selection-for-the-mock)). |
+| 6 | Is there an existing Entra ID app registration with permissions for the Calculation API endpoints in the test tenant? | Needed for `app-registrations.json` | Architect | Open |
+| 7 | *(New)* The real IBIS flow uses `POST /calculations` + `PATCH /calculationsExtended` as two separate calls ([Section 7.6.5](#765-confirmed-api-flow)). Should the mock mimic this exact two-step pattern, or is a single POST to `calculationsExtended` acceptable? | Mock fidelity vs. simplicity | Developer | Open |
+| 8 | *(New)* The real IBIS `dataUrl` points to `https://dataservice.ibis.nl/...`. For the mock, the file server must be reachable from BC SaaS. Is a public URL (e.g., Azure Blob Storage, or a simple static file host) preferred over localhost+tunnel? | File server hosting | Architect | Open |
 
 ---
 
@@ -681,13 +973,14 @@ The `dataUrl` in the API POST body points to one of these URLs. BC's `GetCalcula
 
 ### 12.1 Prerequisites (Must Resolve First)
 
-| # | Prerequisite | Why It Blocks | How to Resolve |
-|---|-------------|---------------|----------------|
-| 1 | **Sample TRAD and KPD budget files** | BC's import logic needs valid XML to parse. Without real-shaped files, the happy flow fails at the Validate/Load step | Check the `TestCalculationAPI` test codeunit for embedded XML; ask QA for sanitised customer files |
-| 2 | **BC test environment with Calculation API installed** | The workflow calls real BC API endpoints — they must exist | Provision a sandbox or COSMO Alpaca container with the Calc API extensions |
-| 3 | **Entra ID app registration** | `bc-api` steps need OAuth tokens to call BC | Create or reuse a registration with Calculation API permissions; populate `app-registrations.json` |
-| 4 | **Recorded page script for UI steps** | The `bc-replay` step needs a YAML script for Get Calculation File, Validate, Load | Record in BC using the page scripting recorder on the Calculations list page |
-| 5 | **File server reachability from BC** | BC must be able to HTTP GET the `dataUrl` pointing to `localhost:7049` | For containers: localhost works. For cloud BC: need ngrok tunnel or public URL |
+| # | Prerequisite | Why It Blocks | How to Resolve | Status |
+|---|-------------|---------------|----------------|--------|
+| 1 | **Sample TRAD and KPD budget files** | BC's import logic needs valid XML to parse. Without real-shaped files, the happy flow fails at the Validate/Load step | ~~Check the `TestCalculationAPI` test codeunit for embedded XML; ask QA for sanitised customer files~~ | **Resolved** — Files available in `docs/IBIS info/`. Use `voorbeeldBegroting.xml` (TRAD) and `DEMO - begroting GWW-Calc.xml` (KPD). See [Section 7.5](#75-xml-format-analysis--available-sample-files). |
+| 2 | **BC test environment with Calculation API installed** | The workflow calls real BC API endpoints — they must exist | ~~Provision a sandbox or COSMO Alpaca container with the Calc API extensions~~ | **Partially resolved** — FPSTEST018 Production confirmed with working Calculation API. Verify it's appropriate for automated testing. |
+| 3 | **Entra ID app registration** | `bc-api` steps need OAuth tokens to call BC | Create or reuse a registration with Calculation API permissions; populate `app-registrations.json` | Open |
+| 4 | **Recorded page script for UI steps** | The `bc-replay` step needs a YAML script for Get Calculation File, Validate, Load | Record in BC using the page scripting recorder on the Calculations list page | Open |
+| 5 | **File server reachability from BC** | BC must be able to HTTP GET the `dataUrl` pointing to the mock file server | For containers: localhost works. For cloud BC (FPSTEST018): need public URL or tunnel | Open |
+| 6 | *(New)* **Element code alignment** | Element codes in sample XML files must match base elements in the target BC environment | Query `GET /baseElements` on FPSTEST018 and compare against `cclcde` values in `voorbeeldBegroting.xml` | Open |
 
 ### 12.2 Implementation Steps
 
@@ -785,7 +1078,9 @@ gantt
 | D3 | File server auth | Level 0 (no auth) | Happy flow — the value is in testing BC's import logic, not token passing |
 | D4 | File server lifecycle | Wrapper script (`Run-IBISMock.ps1`) | Simple; no changes to shared pipeline |
 | D5 | Reuse OAuth pattern | Yes | `app-registrations.json` + `Run-BCWorkflow.ps1` token acquisition |
-| D6 | Existing mock at `4PS Calculation API Extended/test/` | Excluded | Not verified; exclude from plan to avoid false confidence |
+| D6 | TRAD sample file | `voorbeeldBegroting.xml` from `docs/IBIS info/` | Uses `<Integratie><TradbegrotingIbis>` wrapper matching BC's detection logic. 15K+ lines with full element hierarchy. *(Added 2026-03-26)* |
+| D7 | KPD sample file | `DEMO - begroting GWW-Calc.xml` from `docs/IBIS info/` | GWW/KPD format with bestekposten, deelposten, tarieven. *(Added 2026-03-26)* |
+| D8 | API flow pattern | Two-step: `POST /calculations` + `PATCH /calculationsExtended` | Matches real IBIS behaviour confirmed by Joost Huggers. See [Section 7.6.5](#765-confirmed-api-flow). *(Added 2026-03-26)* |
 
 ---
 
@@ -825,7 +1120,6 @@ gantt
 | Codeunit: Rest Management (11020440) | `4PS Calculation API Extended/app/src/codeunit/4PSCalculationApiRestMgt.Codeunit.al` |
 | PageExt: Calculations list (11130965) | `4PS Calculation API Extended/app/src/pageextension/4PSCalculationApiCalc.PageExt.al` |
 | PageExt: Setup (11130971) | `4PS Calculation API Extended/app/src/pageextension/4PSCalcExtendedSetup.PageExt.al` |
-| Existing Mock (unverified) | `4PS Calculation API Extended/test/Mock-CalculationApi.ps1` |
 
 ### 13.2 Jira & Confluence
 
@@ -837,8 +1131,22 @@ gantt
 | DR-788: Phase 2 scope | *(Internal Confluence)* |
 | DR-972: User story Infra elements | *(Internal Confluence)* |
 | DR-973: User story Bouw elements | *(Internal Confluence)* |
+| Standaard integratie Brink software (IBIS) — Confluence | *(Link from Joost's email, 2026-03-13)* |
 
-### 13.3 4PS Knowledge Base (via Moltbook)
+### 13.3 Sample Data Files (Added 2026-03-26)
+
+All files in `docs/IBIS info/`:
+
+| File | Format | Purpose |
+|------|--------|---------|
+| `voorbeeldBegroting.xml` | TRAD Integration | Primary TRAD test file — `<Integratie><TradbegrotingIbis>` |
+| `DEMO - begroting GWW-Calc.xml` | KPD/GWW | Primary KPD test file — `<GwwBundel>` |
+| `Import Begroting GWW-Calc.xml` | KPD/GWW | Duplicate/variant of GWW file |
+| `DEMO - bestek en alternatieve code CUFXML.xml` | CUF | Alternative construction format |
+| `DEMO - bestek en alternatieve code TRADXML.xml` | TRAD Plain | TRAD format without integration wrapper |
+| `Mail joost 13-3-2026.txt` | Email | API examples and flow description from Joost Huggers |
+
+### 13.4 4PS Knowledge Base (via Moltbook)
 
 | Topic | Source URL |
 |-------|-----------|
@@ -849,7 +1157,7 @@ gantt
 | 12Build API Key setup (reference pattern) | https://4ps.atlassian.net/wiki/spaces/KB/pages/225347847/Credentials |
 | COSMO Alpaca testing containers | https://4ps.atlassian.net/wiki/spaces/KB/pages/578584632/COSMO+Alpaca+for+testers |
 
-### 13.4 External References
+### 13.5 External References
 
 | Topic | Source |
 |-------|--------|
@@ -861,8 +1169,8 @@ gantt
 
 ## 14. Verification Status
 
-> **Reviewed:** 2026-03-12  
-> **Method:** Cross-referenced against AL codebase (Moltbook aldocs), Microsoft Learn, and the `bc-replay/Run-BCWorkflow.ps1` pipeline implementation.
+> **Reviewed:** 2026-03-12 | **Updated:** 2026-03-26  
+> **Method:** Cross-referenced against AL codebase (Moltbook aldocs), Microsoft Learn, the `bc-replay/Run-BCWorkflow.ps1` pipeline implementation, and real API payloads from FPSTEST018.
 
 ### 14.1 Verified Claims
 
@@ -888,8 +1196,22 @@ gantt
 | 8.2 | `bc-api` steps use `app-registrations.json` with `client_id`, `client_secret`, `tenant_id`, `environment_name`, `company_id` | `page-scripting/PO Approval Workflow/app-registrations.sample.json` |
 | 9.5 | `capture_response` with JSONPath, `depends_on`, `inject` with `{capture.stepId.varName}` syntax | `Run-BCWorkflow.ps1` implementation |
 | 12.3 | OAuth2 token endpoint: `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token` with scope `https://api.businesscentral.dynamics.com/.default` | `Run-BCWorkflow.ps1` lines ~397-406 |
-| 13.4 | BC custom API URL pattern: `api/{publisher}/{group}/{version}/companies({companyId})/{endpoint}` | [Microsoft Learn: API endpoint structure](https://learn.microsoft.com/dynamics365/business-central/dev-itpro/webservices/api-endpoint-structure) |
-| 13.4 | `System.Net.HttpListener` is a valid .NET class | [Microsoft Learn: HttpListener](https://learn.microsoft.com/dotnet/api/system.net.httplistener) |
+| 13.5 | BC custom API URL pattern: `api/{publisher}/{group}/{version}/companies({companyId})/{endpoint}` | [Microsoft Learn: API endpoint structure](https://learn.microsoft.com/dynamics365/business-central/dev-itpro/webservices/api-endpoint-structure) |
+| 13.5 | `System.Net.HttpListener` is a valid .NET class | [Microsoft Learn: HttpListener](https://learn.microsoft.com/dotnet/api/system.net.httplistener) |
+
+#### Claims verified via IBIS info data (2026-03-26)
+
+| Section | Claim | Source |
+|---------|-------|--------|
+| 2.2 | IBIS data service URL pattern: `https://dataservice.ibis.nl/public/applications/{app}/files/{fileId}?version={version}` | Real API response from FPSTEST018 (Joost email) |
+| 7.1 | TRAD integration format uses root `<Integratie><TradbegrotingIbis>` | `voorbeeldBegroting.xml` — confirmed with actual file |
+| 7.1 | KPD/GWW format uses root `<GwwBundel xmlns="http://tempuri.org/KPDXML.xsd">` | `DEMO - begroting GWW-Calc.xml` — confirmed with actual file |
+| 7.2 | TRAD elements use `cclcde` (calculatiecode), `altcde` (alternatieve code), `bstcde` (bestekcode) for 4PS element mapping | `voorbeeldBegroting.xml` — element tags contain these fields |
+| 7.2 | CUF format defines SORTEERCODES: `cclcde`, `altcde`, `bstcde`, `bwcarb`, `bwcmta`, `bwcmte`, `bwcoda` | `DEMO - bestek en alternatieve code CUFXML.xml` — confirmed |
+| 7.2 | KPD/GWW uses `Sorteercode` and `Calculatiecode` for cost carrier / element mapping | `DEMO - begroting GWW-Calc.xml` — confirmed in `<Bestekposten>` tags |
+| 7.6 | `calculations` (v1.1) POST body: `calculationId`, `calculationVersion`, `projectNo` | Real POST example from FPSTEST018 (Joost email) |
+| 7.6 | `calculationsExtended` (v1.0) response includes `dataUrl`, `token`, `fileId`, `fileVersion` | Real GET response from FPSTEST018 (Joost email) |
+| 7.6 | `calculationVersion` uses ISO 8601 timestamps (IBIS convention) | Real data: `"2025-05-20T06:12:05.6456817Z"` |
 
 ### 14.2 Unverifiable Claims
 
@@ -913,7 +1235,6 @@ The following claims reference internal or private sources that could not be ind
 | 7.3 | Old budget lines must be manually deleted if replacement is desired | Internal BC process behaviour |
 | 4.2 | `calculationsExtended` API version is `v1.0` (distinct from W1 endpoints at v1.1) | AL code snippet did not include `APIVersion`; plausible given separate NL extension app, but not confirmed |
 | 4.2 | `calculations` endpoint supports POST only (no GET/PATCH/DELETE) | AL snippet shows `InsertAllowed = true` but defaults for other CRUD not visible in returned fragment |
-| 13.1 | Existing mock at `4PS Calculation API Extended/test/Mock-CalculationApi.ps1` | Internal repo; not present in this workspace |
 | Scope | DR-788 (Phase 2 scope), DR-972 (Infra elements), DR-973 (Bouw elements) | Internal Confluence documents |
 | Scope | Jira tickets FPS-8992, FPS-13330, FPS-13331 content and status | Internal Jira (URLs confirmed to exist, content not verified) |
 

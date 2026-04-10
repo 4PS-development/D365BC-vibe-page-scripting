@@ -21,6 +21,28 @@
       "description": "Optional free-text description of what the workflow tests.",
       "examples": ["Multi-user workflow: Purchaser creates PO, Approver approves it"]
     },
+    "catalog": {
+      "type": "object",
+      "description": "Optional catalog position. Informational back-reference to this workflow's place in the 3-level hierarchy (catalog.json is the source of truth).",
+      "additionalProperties": false,
+      "properties": {
+        "value_chain": {
+          "type": "string",
+          "description": "Code of the value chain this workflow belongs to.",
+          "examples": ["PRJ", "INK"]
+        },
+        "type": {
+          "type": "string",
+          "description": "Code of the type within the value chain.",
+          "examples": ["VG", "PO"]
+        },
+        "process_flow": {
+          "type": "string",
+          "description": "Code of this process flow.",
+          "examples": ["TRAJECT", "APPR"]
+        }
+      }
+    },
     "bc_url": {
       "type": "string",
       "format": "uri",

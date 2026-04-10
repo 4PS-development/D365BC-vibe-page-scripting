@@ -1,0 +1,95 @@
+{
+  "value_chains": [
+    {
+      "types": [
+        {
+          "name": "Vastgoed",
+          "code": "VG",
+          "totals": {
+            "passed": 0,
+            "process_flows": 1,
+            "not_run": 0,
+            "failed": 1
+          },
+          "composite_code": "PRJ-VG",
+          "description": "Vastgoedprojecten — traject, projectkaart, overdracht.",
+          "process_flows": [
+            {
+              "name": "Van traject naar project",
+              "workflow_path": "./Van traject naar project",
+              "code": "TRAJECT",
+              "composite_code": "PRJ-VG-TRAJECT",
+              "report_path": ".\\Van traject naar project\\results\\workflow-summary.html",
+              "failed_steps": 1,
+              "breadcrumb": "Projecten > Vastgoed > Van traject naar project",
+              "status": "failed",
+              "total_steps": 1,
+              "overall": "FAILED",
+              "passed_steps": 0,
+              "last_run": "2026-03-12T10:49:43.5225685+01:00",
+              "duration_s": 41.1
+            }
+          ]
+        }
+      ],
+      "name": "Projecten",
+      "totals": {
+        "passed": 0,
+        "process_flows": 1,
+        "not_run": 0,
+        "failed": 1
+      },
+      "code": "PRJ",
+      "description": "Projectmatige bedrijfsprocessen — van acquisitie tot oplevering."
+    },
+    {
+      "types": [
+        {
+          "name": "Purchase Orders",
+          "code": "PO",
+          "totals": {
+            "passed": 0,
+            "process_flows": 1,
+            "not_run": 0,
+            "failed": 1
+          },
+          "composite_code": "INK-PO",
+          "description": "Inkooporder workflows.",
+          "process_flows": [
+            {
+              "name": "PO Approval",
+              "workflow_path": "./PO Approval Workflow",
+              "code": "APPR",
+              "composite_code": "INK-PO-APPR",
+              "report_path": ".\\PO Approval Workflow\\results\\workflow-summary.html",
+              "failed_steps": 1,
+              "breadcrumb": "Inkoop > Purchase Orders > PO Approval",
+              "status": "failed",
+              "total_steps": 1,
+              "overall": "FAILED",
+              "passed_steps": 0,
+              "last_run": "2026-03-12T12:55:02.1977398+01:00",
+              "duration_s": 24.9
+            }
+          ]
+        }
+      ],
+      "name": "Inkoop",
+      "totals": {
+        "passed": 0,
+        "process_flows": 1,
+        "not_run": 0,
+        "failed": 1
+      },
+      "code": "INK",
+      "description": "Inkoopprocessen — bestelling, goedkeuring, ontvangst."
+    }
+  ],
+  "totals": {
+    "passed": 0,
+    "process_flows": 2,
+    "not_run": 0,
+    "failed": 2
+  },
+  "generated_at": "2026-04-10T11:10:07.7988597+02:00"
+}

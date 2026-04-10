@@ -19,8 +19,9 @@
       </li>
       <li class="nav-item" data-tab="environments">
         <span class="nav-icon">🔑</span><span class="nav-label">Environments</span>
-      </li>
-      <li class="nav-item" data-tab="workflow">
+      </li>      <li class="nav-item" data-tab="catalog">
+        <span class="nav-icon">&#x1F4C2;</span><span class="nav-label">Test Catalog</span>
+      </li>      <li class="nav-item" data-tab="workflow">
         <span class="nav-icon">⬡</span><span class="nav-label">Workflow Designer</span>
       </li>
       <li class="nav-item" data-tab="variants">
@@ -240,20 +241,38 @@
       </div>
     </section>
 
-    <!-- ── WORKFLOW DESIGNER ── -->
-    <section id="tab-workflow" class="tab">
+    <!-- ── TEST CATALOG ── -->
+    <section id="tab-catalog" class="tab">
       <div class="page-header">
-        <h1>Workflow Designer</h1>
+        <h1>Test Catalog</h1>
         <div class="header-actions">
-          <select id="wf-project-select" class="input input-sm">
-            <option value="">— select project —</option>
-          </select>
-          <button class="btn btn-secondary" id="btn-wf-load">Load</button>
-          <button class="btn btn-primary" id="btn-wf-save">Save to project</button>
+          <button class="btn btn-secondary" id="btn-cat-import">Import</button>
+          <button class="btn btn-secondary" id="btn-cat-export">Export</button>
+          <button class="btn btn-primary" id="btn-cat-save">Save to Server</button>
         </div>
       </div>
+      <div class="card" id="cat-meta-card">
+        <div class="form-grid">
+          <label>Catalog Name
+            <input id="cat-name" class="input" placeholder="e.g. 4PS Test Catalog">
+          </label>
+          <label>Description
+            <input id="cat-desc" class="input" placeholder="Optional description">
+          </label>
+        </div>
+      </div>
+      <div id="cat-tree-container" class="mt-md">
+        <!-- value chain cards rendered here by JS -->
+      </div>
+      <div class="mt-md" style="text-align:center">
+        <button class="btn btn-secondary" id="btn-cat-add-vc">+ Add Value Chain</button>
+      </div>
+    </section>
+
+    <!-- ── WORKFLOW DESIGNER ── -->
+    <section id="tab-workflow" class="tab">
       <!-- The workflow builder iframe keeps it fully isolated -->
-      <div class="iframe-wrapper">
+      <div class="iframe-wrapper" style="height:100%">
         <iframe id="wf-iframe" src="/tools/workflow-builder/index.html" title="Workflow Designer"></iframe>
       </div>
     </section>
@@ -294,41 +313,54 @@
 
     <!-- ── RUN ── -->
     <section id="tab-run" class="tab">
-      <div class="page-header"><h1>Run Workflow</h1></div>
-      <div class="card">
-        <div class="form-grid">
-          <label>Project
-            <select id="run-project" class="input">
-              <option value="">— select project —</option>
-            </select>
-          </label>
-          <label>Environment
-            <select id="run-environment" class="input">
+      <div class="page-header">
+        <h1>Run Workflow</h1>
+      </div>
+
+      <div class="run-layout">
+        <!-- Left: catalog tree with checkboxes -->
+        <div class="card run-catalog-panel">
+          <div class="run-catalog-header">
+            <strong>Test Catalog</strong>
+            <div class="run-catalog-actions">
+              <button class="btn btn-secondary btn-sm" id="btn-run-select-all">Select All</button>
+              <button class="btn btn-secondary btn-sm" id="btn-run-select-none">None</button>
+            </div>
+          </div>
+          <div id="run-catalog-tree"></div>
+        </div>
+
+        <!-- Right: options + output -->
+        <div class="run-options-panel">
+          <div class="card">
+            <label style="font-weight:600;margin-bottom:6px;display:block">Environment</label>
+            <select id="run-environment" class="input" style="max-width:320px">
               <option value="">— select environment —</option>
             </select>
-          </label>
+            <div class="checkbox-group mt-md">
+              <label class="checkbox-label">
+                <input type="checkbox" id="run-headed" />
+                Show browser window (headed)
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="run-stop-on-failure" checked />
+                Stop on first failure
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="run-dry-run" />
+                Dry run (validate only, no BC changes)
+              </label>
+            </div>
+            <div class="actions mt-md">
+              <button class="btn btn-primary" id="btn-run">Run Selected</button>
+              <span id="run-selected-count" class="text-muted" style="font-size:13px;margin-left:8px"></span>
+            </div>
+          </div>
+          <div class="card mt-md" id="run-output-card" style="display:none">
+            <h2>Live Output</h2>
+            <pre id="run-output" class="output-pane"></pre>
+          </div>
         </div>
-        <div class="checkbox-group mt-md">
-          <label class="checkbox-label">
-            <input type="checkbox" id="run-headed" />
-            Show browser window (headed)
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="run-stop-on-failure" checked />
-            Stop on first failure
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="run-dry-run" />
-            Dry run (validate only, no BC changes)
-          </label>
-        </div>
-        <div class="actions mt-md">
-          <button class="btn btn-primary" id="btn-run">Run</button>
-        </div>
-      </div>
-      <div class="card mt-md" id="run-output-card" style="display:none">
-        <h2>Live Output</h2>
-        <pre id="run-output" class="output-pane"></pre>
       </div>
     </section>
 

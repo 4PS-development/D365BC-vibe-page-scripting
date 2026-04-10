@@ -10,11 +10,5 @@
     "password": "your-password-here",
     "description": "",
     "mfa_seed": "your-totp-seed-here"
-  },
-  "system": {
-    "username": "system@yourtenant.onmicrosoft.com",
-    "password": "your-password-here",
-    "description": "",
-    "mfa_seed": "your-totp-seed-here"
   }
 }

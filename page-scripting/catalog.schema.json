@@ -1,0 +1,115 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/4PS-development/D365BC-vibe-page-scripting/catalog.schema.json",
+  "title": "BC Test Catalog",
+  "description": "Schema for catalog.json — a 3-level hierarchy (Waardeketen > Type > Procesflow) that organises BC workflow test projects into a traceable structure.",
+  "type": "object",
+  "required": ["value_chains"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional: reference to this schema file for VS Code IntelliSense."
+    },
+    "value_chains": {
+      "type": "array",
+      "description": "Top-level grouping of business processes (e.g. Projecten, Service). Each value chain contains one or more types.",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/value_chain"
+      }
+    }
+  },
+  "definitions": {
+    "value_chain": {
+      "type": "object",
+      "description": "Level 1 — a business value chain (waardeketen). Groups related project types.",
+      "required": ["code", "name", "types"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{1,10}$",
+          "description": "User-defined short code (uppercase, max 10 chars). Used as prefix in composite codes.",
+          "examples": ["PRJ", "SVC", "INK"]
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name for this value chain.",
+          "examples": ["Projecten", "Service", "Inkoop"]
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description of this value chain."
+        },
+        "types": {
+          "type": "array",
+          "description": "Project types within this value chain (e.g. Termijnmotivering, Regie).",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/type"
+          }
+        }
+      }
+    },
+    "type": {
+      "type": "object",
+      "description": "Level 2 — a project type within a value chain. Groups related process flows.",
+      "required": ["code", "name", "process_flows"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{1,10}$",
+          "description": "User-defined short code (uppercase, max 10 chars). Combined with parent: PRJ-TM.",
+          "examples": ["TM", "REGIE", "VG"]
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name for this type.",
+          "examples": ["Termijnmotivering", "Regie", "Vastgoed"]
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description of this type."
+        },
+        "process_flows": {
+          "type": "array",
+          "description": "Process flows (test workflows) within this type.",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/process_flow"
+          }
+        }
+      }
+    },
+    "process_flow": {
+      "type": "object",
+      "description": "Level 3 — a single process flow that maps 1:1 to a workflow folder containing workflow.json.",
+      "required": ["code", "name", "workflow_path"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z0-9-]{1,10}$",
+          "description": "User-defined short code (uppercase, max 10 chars). Full composite code: PRJ-TM-PO-APPR.",
+          "examples": ["PO-APPR", "TRAJECT", "PO-POST"]
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name for this process flow.",
+          "examples": ["PO Approval", "Van traject naar project"]
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description of what this process flow tests."
+        },
+        "workflow_path": {
+          "type": "string",
+          "description": "Relative path (from catalog.json location) to the workflow project folder. Must contain a workflow.json.",
+          "examples": ["./PO Approval Workflow", "./Van traject naar project"]
+        }
+      }
+    }
+  }
+}

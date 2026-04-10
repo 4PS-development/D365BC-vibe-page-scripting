@@ -1,0 +1,106 @@
+Bart
+
+Hoe de koppeling technisch werkt qua API calls weet ik niet precies. Ik ben bang dat je bij de developers van IBIS moet zijn...
+
+Wat ik verwacht hoe het werkt: 
+-	IBIS (of jouw tool) zet ergens een xml bestand neer (dit levert een URL op)
+-	IBIS (of jouw tool) maakt een regel aan in Calc. API Calculations tabel met POST calculations
+-	Waarschijnlijk zetten ze de dataURL er in met een PATCH calculationsExtended??? 
+
+Vervolgens moet je testcase het bestand ophalen en verwerken.
+Ga je ook testen dat de calculatie wordt afgekeurd? Dat moet dan weer naar IBIS (of jouw tool)
+
+Hopelijk kan je hier iets mee...
+
+Voorbeelden FPSTEST018 Production:
+
+GET https://4psconstruct.api.bc.dynamics.com/v2.0/{{tenantId}}/{{environmentName}}/api/4ps/calculation/v1.1/companies({{companyId}})/calculations?$filter=calculationId eq 99359dce-7a5e-4a0f-bf5f-8557ab152b49
+
+{
+  "@odata.context": https://4psconstruct.api.bc.dynamics.com/v2.0/9a3ecacb-258f-4487-9e56-20acb3a16014/Production/api/4ps/calculation/v1.1/$metadata#companies(45734f09-c4f6-ec11-b290-90b150325075)/calculations,
+  "value": [
+    {
+      "@odata.etag": "W/\"JzE5Ozk1MzI4NjE4NDI4NTA1Mjc1NjkxOzAwOyc=\"",
+      "id": "2dafd25f-4135-f011-8a93-87b6396fde5c",
+      "calculationId": "99359dce-7a5e-4a0f-bf5f-8557ab152b49",
+      "calculationVersion": "2025-05-20T06:12:05.6456817Z",
+      "projectNo": "PR00023",
+      "projectDescription": "intern doorbelasten",
+      "extensionContractNo": "",
+      "extensionContractDescription": "",
+      "budgetAdjustmentNo": "",
+      "budgetAdjustmentDescription": "",
+      "status": "Submitted",
+      "reasonForRejection": "",
+      "systemCreatedAt": "2025-05-20T06:12:15.587Z",
+      "systemCreatedBy": "117e49f0-f975-4dd7-b8aa-6819fe0c1db9",
+      "lastModifiedDateTime": "2025-05-20T06:12:15.61Z",
+      "systemModifiedBy": "117e49f0-f975-4dd7-b8aa-6819fe0c1db9",
+      "systemRowVersion": 40043196,
+      calculationContent@odata.mediaEditLink: https://4psconstruct.api.bc.dynamics.com/v2.0/9a3ecacb-258f-4487-9e56-20acb3a16014/Production/api/4ps/calculation/v1.1/companies(45734f09-c4f6-ec11-b290-90b150325075)/calculations(2dafd25f-4135-f011-8a93-87b6396fde5c)/calculationContent,
+      calculationContent@odata.mediaReadLink: https://4psconstruct.api.bc.dynamics.com/v2.0/9a3ecacb-258f-4487-9e56-20acb3a16014/Production/api/4ps/calculation/v1.1/companies(45734f09-c4f6-ec11-b290-90b150325075)/calculations(2dafd25f-4135-f011-8a93-87b6396fde5c)/calculationContent,
+      Errors@odata.mediaEditLink: https://4psconstruct.api.bc.dynamics.com/v2.0/9a3ecacb-258f-4487-9e56-20acb3a16014/Production/api/4ps/calculation/v1.1/companies(45734f09-c4f6-ec11-b290-90b150325075)/calculations(2dafd25f-4135-f011-8a93-87b6396fde5c)/Errors,
+      Errors@odata.mediaReadLink: https://4psconstruct.api.bc.dynamics.com/v2.0/9a3ecacb-258f-4487-9e56-20acb3a16014/Production/api/4ps/calculation/v1.1/companies(45734f09-c4f6-ec11-b290-90b150325075)/calculations(2dafd25f-4135-f011-8a93-87b6396fde5c)/Errors
+    },
+  ]
+}
+
+POST https://4psconstruct.api.bc.dynamics.com/v2.0/{{tenantId}}/{{environmentName}}/api/4ps/calculation/v1.1/companies({{companyId}})/calculations
+
+{
+    "calculationId": "3e026d64-b89f-4685-994a-329b960b3ccb",
+    "calculationVersion": "0.1",
+    "projectNo": "PR00160"
+}
+
+
+GET https://4psconstruct.api.bc.dynamics.com/v2.0/{{tenantId}}/{{environmentName}}/api/4ps/calculation/v1.0/companies({{companyId}})/calculationsExtended?$filter=systemId eq 2dafd25f-4135-f011-8a93-87b6396fde5c
+
+{
+  "@odata.context": https://4psconstruct.api.bc.dynamics.com/v2.0/9a3ecacb-258f-4487-9e56-20acb3a16014/Production/api/4ps/calculation/v1.0/$metadata#companies(45734f09-c4f6-ec11-b290-90b150325075)/calculationsExtended,
+  "value": [
+    {
+      "@odata.etag": "W/\"JzE5OzczMTU4NzE4MDE2NjYyOTEwNDUxOzAwOyc=\"",
+      "systemId": "2dafd25f-4135-f011-8a93-87b6396fde5c",
+      "fileId": "99359dce-7a5e-4a0f-bf5f-8557ab152b49",
+      "fileVersion": "2025-05-20T06:12:05.6456817Z",
+      "status": "Submitted",
+      "reasonForRejection": "",
+      "applicationName": "",
+      "dataUrl": https://dataservice.ibis.nl/public/applications/calculerenvoorbouw/files/99359dce-7a5e-4a0f-bf5f-8557ab152b49?version=2025-05-20T06:12:05.6456817Z,
+      "token": "",
+      "entityStatus": "",
+      "systemCreatedAt": "2025-05-20T06:12:15.587Z",
+      "systemCreatedBy": "117e49f0-f975-4dd7-b8aa-6819fe0c1db9",
+      "systemModifiedAt": "2025-05-20T06:12:15.61Z",
+      "systemModifiedBy": "117e49f0-f975-4dd7-b8aa-6819fe0c1db9",
+      calculationContent@odata.mediaEditLink: https://4psconstruct.api.bc.dynamics.com/v2.0/9a3ecacb-258f-4487-9e56-20acb3a16014/Production/api/4ps/calculation/v1.0/companies(45734f09-c4f6-ec11-b290-90b150325075)/calculationsExtended(2dafd25f-4135-f011-8a93-87b6396fde5c)/calculationContent,
+      calculationContent@odata.mediaReadLink: https://4psconstruct.api.bc.dynamics.com/v2.0/9a3ecacb-258f-4487-9e56-20acb3a16014/Production/api/4ps/calculation/v1.0/companies(45734f09-c4f6-ec11-b290-90b150325075)/calculationsExtended(2dafd25f-4135-f011-8a93-87b6396fde5c)/calculationContent
+    }
+  ]
+}
+
+
+Ik heb nog het een en ander verzameld
+
+Links:
+Standaard integratie Brink software (IBIS) - 4PS - 4PS Construct DP - Confluence
+
+
+
+Mocht je naar aanleiding hiervan nog vragen of opmerkingen hebben dan hoor ik het graag! Alvast bedankt.
+
+Vriendelijke groet | Kind regards,
+ 
+Joost Huggers
+Functioneel Consultant
+
++31 6 8250 8351
+www.4ps.nl
+ 
+ 
+ 
+ 
+ 
+
+

@@ -1,0 +1,13 @@
+{
+  "$schema": "./workflow.schema.json",
+  "name": "Standaard project aanmaken",
+  "description": "",
+  "bc_url": "https://4psconstruct.bc.dynamics.com/8f94bd30-45c4-40a9-9898-8dd15063a020/FpsDemo",
+  "steps": [
+    {
+      "id": "step-1",
+      "name": "Step 1",
+      "user": "purchaser"
+    }
+  ]
+}

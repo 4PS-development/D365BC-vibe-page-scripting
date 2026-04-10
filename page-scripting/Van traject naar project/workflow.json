@@ -1,6 +1,11 @@
 {
   "name": "Van traject naar project",
-  "description": "",
+  "description": "Volledig traject: aanmaken traject, overdracht, projectkaart inrichten.",
+  "catalog": {
+    "value_chain": "PRJ",
+    "type": "VG",
+    "process_flow": "TRAJECT"
+  },
   "bc_url": "https://4psconstruct.bc.dynamics.com/d163e125-e357-46fa-885a-ca549208b546/VG-Test",
   "steps": [
     {

@@ -28,14 +28,22 @@ document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', () => activateTab(item.dataset.tab));
 });
 
+let activeTab = 'setup';
+
 function activateTab(tabId) {
+  // Auto-save workflow when leaving the workflow tab
+  if (activeTab === 'workflow' && tabId !== 'workflow') {
+    autoSaveWorkflow();
+  }
+  activeTab = tabId;
+
   document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.tab === tabId));
   document.querySelectorAll('.tab').forEach(s => s.classList.toggle('active', s.id === `tab-${tabId}`));
 
   // Lazy-load tab data
   if (tabId === 'setup')        loadSetup();
   if (tabId === 'environments') loadEnvironments();
-  if (tabId === 'workflow')     loadWorkflowProjects();
+  if (tabId === 'catalog')      loadCatalog();
   if (tabId === 'variants')     loadVariantProjects();
   if (tabId === 'run')          loadRunPage();
   if (tabId === 'evaluate')     loadEvaluatePage();
@@ -163,6 +171,7 @@ function renderEnvList() {
   state.environments.forEach(env => {
     const card = document.createElement('div');
     card.className = 'env-card';
+    if (env.isDefault) card.classList.add('env-default');
     const chips = (env.roles || []).map(r =>
       `<span class="role-chip has-cred">${r.role}: ${r.username || '—'}</span>`
     ).join('');
@@ -172,10 +181,17 @@ function renderEnvList() {
     const companiesBadge = (env.companies && env.companies.length)
       ? `<span class="role-chip has-cred" style="border-color:#0369a1;color:#0369a1">${env.companies.length} compan${env.companies.length === 1 ? 'y' : 'ies'}</span>`
       : '';
+    const defaultBadge = env.isDefault
+      ? '<span class="env-default-badge">DEFAULT</span>'
+      : '';
+    const defaultBtn = env.isDefault
+      ? ''
+      : `<button class="btn btn-secondary btn-sm" data-setdefault="${esc(env.name)}" title="Use as default environment">Set Default</button>`;
     card.innerHTML = `
       <div class="env-card-header">
-        <span class="env-card-name">${esc(env.name)}</span>
+        <span class="env-card-name">${esc(env.name)}${defaultBadge}</span>
         <div class="env-card-actions">
+          ${defaultBtn}
           <button class="btn btn-secondary btn-sm" data-export="${esc(env.name)}" title="Export credentials to a project folder">Export</button>
           <button class="btn btn-secondary btn-sm" data-edit="${esc(env.name)}">Edit</button>
           <button class="btn btn-danger btn-sm" data-del="${esc(env.name)}">Delete</button>
@@ -186,6 +202,8 @@ function renderEnvList() {
     card.querySelector('[data-del]').addEventListener('click', () => deleteEnv(env.name));
     card.querySelector('[data-edit]').addEventListener('click', () => openEnvModal(env.name));
     card.querySelector('[data-export]').addEventListener('click', () => openExportCredsModal(env.name));
+    const setDefBtn = card.querySelector('[data-setdefault]');
+    if (setDefBtn) setDefBtn.addEventListener('click', () => setDefaultEnv(env.name));
     grid.appendChild(card);
   });
 }
@@ -194,6 +212,16 @@ async function deleteEnv(name) {
   if (!confirm(`Delete environment "${name}"? All stored credentials will be removed.`)) return;
   await DEL(`/environments/${encodeURIComponent(name)}`);
   await loadEnvironments();
+}
+
+async function setDefaultEnv(name) {
+  await api('PATCH', `/environments/${encodeURIComponent(name)}/default`);
+  await loadEnvironments();
+}
+
+function getDefaultEnvName() {
+  const def = state.environments.find(e => e.isDefault);
+  return def ? def.name : null;
 }
 
 // Add / Edit environment modal
@@ -538,45 +566,35 @@ async function saveEnv() {
 }
 
 // ── Workflow Designer ─────────────────────────────────────────────────────────
-async function loadWorkflowProjects() {
-  const data = await GET('/projects').catch(() => []);
-  state.projects = data;
-  const sel = document.getElementById('wf-project-select');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">— select project —</option>';
-  data.forEach(p => {
-    const opt = new Option(p.name + (p.hasWorkflow ? ' ✓' : ''), p.name);
-    sel.appendChild(opt);
-  });
-  if (cur && data.find(p => p.name === cur)) sel.value = cur;
+
+// Auto-save: request the iframe to export, then silently save on receipt
+let autoSaving = false;
+function autoSaveWorkflow() {
+  const iframe = document.getElementById('wf-iframe');
+  if (!iframe?.contentWindow) return;
+  autoSaving = true;
+  iframe.contentWindow.postMessage({ type: 'request-export', project: '__autosave__', silent: true }, '*');
 }
-
-document.getElementById('btn-wf-load').addEventListener('click', async () => {
-  const name = document.getElementById('wf-project-select').value;
-  if (!name) return;
-  try {
-    const wf = await GET(`/projects/${encodeURIComponent(name)}/workflow`);
-    document.getElementById('wf-iframe').contentWindow.postMessage({ type: 'load-workflow', workflow: wf }, '*');
-  } catch { /* workflow.json might not exist yet — that's fine */ }
-});
-
-document.getElementById('btn-wf-save').addEventListener('click', () => {
-  const name = document.getElementById('wf-project-select').value;
-  if (!name) { alert('Select a project first.'); return; }
-  document.getElementById('wf-iframe').contentWindow.postMessage({ type: 'request-export', project: name }, '*');
-});
 
 // Receive export data from the workflow builder iframe
 window.addEventListener('message', async evt => {
+  if (evt.data?.type === 'export-error') {
+    // Silently ignore validation errors during auto-save
+    if (autoSaving) { autoSaving = false; return; }
+  }
   if (evt.data?.type === 'export-workflow') {
     const { project, workflow } = evt.data;
-    if (!project || !workflow) return;
+    if (!workflow) return;
+    // Determine the real project name from the workflow or the message
+    const name = (project && project !== '__autosave__') ? project : (workflow.name || '').trim();
+    if (!name) return;
+    const silent = autoSaving;
+    autoSaving = false;
     try {
-      await POST(`/projects/${encodeURIComponent(project)}/workflow`, workflow);
-      alert(`Saved to page-scripting/${project}/workflow.json`);
-      loadWorkflowProjects();
+      await POST(`/projects/${encodeURIComponent(name)}/workflow`, workflow);
+      if (!silent) alert(`Saved to page-scripting/${name}/workflow.json`);
     } catch (e) {
-      alert(`Save failed: ${e.message}`);
+      if (!silent) alert(`Save failed: ${e.message}`);
     }
   }
 });
@@ -631,30 +649,133 @@ function onVariantDone(msg) {
 
 // ── Run ───────────────────────────────────────────────────────────────────────
 async function loadRunPage() {
-  const [projects, envs] = await Promise.all([
+  const [cat, projects, envs] = await Promise.all([
+    GET('/catalog').catch(() => null),
     GET('/projects').catch(() => []),
     GET('/environments').catch(() => []),
   ]);
   state.projects = projects;
   state.environments = envs;
 
-  const pSel = document.getElementById('run-project');
+  // Environment dropdown with default pre-selected
   const eSel = document.getElementById('run-environment');
-  const curP = pSel.value, curE = eSel.value;
-
-  pSel.innerHTML = '<option value="">— select project —</option>';
-  projects.filter(p => p.hasWorkflow).forEach(p => pSel.appendChild(new Option(p.name, p.name)));
-  if (curP && projects.find(p => p.name === curP)) pSel.value = curP;
-
+  const curE = eSel.value;
   eSel.innerHTML = '<option value="">— select environment —</option>';
-  envs.forEach(e => eSel.appendChild(new Option(e.name, e.name)));
+  envs.forEach(e => eSel.appendChild(new Option(e.name + (e.isDefault ? ' (default)' : ''), e.name)));
+  const defaultEnv = envs.find(e => e.isDefault);
   if (curE && envs.find(e => e.name === curE)) eSel.value = curE;
+  else if (defaultEnv) eSel.value = defaultEnv.name;
+
+  // Build catalog tree with checkboxes
+  const tree = document.getElementById('run-catalog-tree');
+  const projectSet = new Set(projects.filter(p => p.hasWorkflow).map(p => p.name));
+
+  if (!cat || !cat.value_chains || !cat.value_chains.length) {
+    tree.innerHTML = '<p class="text-muted" style="padding:8px">No catalog loaded. Configure the catalog first.</p>';
+    updateRunSelectedCount();
+    return;
+  }
+
+  let html = '';
+  for (const vc of cat.value_chains) {
+    const vcId = `run-vc-${vc.code}`;
+    html += `<div class="run-tree-vc">
+      <label class="run-tree-label run-tree-vc-label">
+        <input type="checkbox" class="run-vc-cb" data-vc="${esc(vc.code)}" id="${vcId}">
+        <strong>${esc(vc.code)}</strong> <span>${esc(vc.name)}</span>
+      </label>`;
+    for (const type of (vc.types || [])) {
+      const typeId = `run-type-${vc.code}-${type.code}`;
+      html += `<div class="run-tree-type">
+        <label class="run-tree-label">
+          <input type="checkbox" class="run-type-cb" data-vc="${esc(vc.code)}" data-type="${esc(type.code)}" id="${typeId}">
+          <strong>${esc(type.code)}</strong> <span>${esc(type.name)}</span>
+        </label>`;
+      for (const pf of (type.process_flows || [])) {
+        const projName = (pf.workflow_path || '').replace(/^\.\//, '');
+        const available = projectSet.has(projName);
+        const pfId = `run-pf-${vc.code}-${type.code}-${pf.code}`;
+        html += `<div class="run-tree-pf">
+          <label class="run-tree-label${!available ? ' run-tree-disabled' : ''}">
+            <input type="checkbox" class="run-pf-cb" data-vc="${esc(vc.code)}" data-type="${esc(type.code)}" data-project="${esc(projName)}" id="${pfId}" ${!available ? 'disabled' : ''}>
+            <code>${esc(pf.code)}</code> <span>${esc(pf.name)}</span>
+            ${!available ? '<span class="text-muted" style="font-size:11px">(no workflow)</span>' : ''}
+          </label>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+  tree.innerHTML = html;
+
+  // Wire up parent-child checkbox cascading
+  tree.querySelectorAll('.run-vc-cb').forEach(cb => cb.addEventListener('change', () => {
+    const vc = cb.dataset.vc;
+    tree.querySelectorAll(`.run-type-cb[data-vc="${vc}"], .run-pf-cb[data-vc="${vc}"]`).forEach(c => { if (!c.disabled) c.checked = cb.checked; });
+    updateRunSelectedCount();
+  }));
+  tree.querySelectorAll('.run-type-cb').forEach(cb => cb.addEventListener('change', () => {
+    const vc = cb.dataset.vc, type = cb.dataset.type;
+    tree.querySelectorAll(`.run-pf-cb[data-vc="${vc}"][data-type="${type}"]`).forEach(c => { if (!c.disabled) c.checked = cb.checked; });
+    syncParentCheckbox(tree, vc);
+    updateRunSelectedCount();
+  }));
+  tree.querySelectorAll('.run-pf-cb').forEach(cb => cb.addEventListener('change', () => {
+    const vc = cb.dataset.vc, type = cb.dataset.type;
+    syncTypeCheckbox(tree, vc, type);
+    syncParentCheckbox(tree, vc);
+    updateRunSelectedCount();
+  }));
+
+  updateRunSelectedCount();
 }
 
+function syncTypeCheckbox(tree, vc, type) {
+  const pfs = tree.querySelectorAll(`.run-pf-cb[data-vc="${vc}"][data-type="${type}"]:not(:disabled)`);
+  const checked = tree.querySelectorAll(`.run-pf-cb[data-vc="${vc}"][data-type="${type}"]:checked`);
+  const typeCb = tree.querySelector(`.run-type-cb[data-vc="${vc}"][data-type="${type}"]`);
+  if (typeCb) {
+    typeCb.checked = pfs.length > 0 && checked.length === pfs.length;
+    typeCb.indeterminate = checked.length > 0 && checked.length < pfs.length;
+  }
+}
+
+function syncParentCheckbox(tree, vc) {
+  const types = tree.querySelectorAll(`.run-type-cb[data-vc="${vc}"]`);
+  const checked = [...types].filter(c => c.checked);
+  const indet = [...types].filter(c => c.indeterminate);
+  const vcCb = tree.querySelector(`.run-vc-cb[data-vc="${vc}"]`);
+  if (vcCb) {
+    vcCb.checked = types.length > 0 && checked.length === types.length && indet.length === 0;
+    vcCb.indeterminate = (checked.length > 0 || indet.length > 0) && (checked.length < types.length || indet.length > 0);
+  }
+}
+
+function getSelectedRunProjects() {
+  return [...document.querySelectorAll('.run-pf-cb:checked')].map(cb => cb.dataset.project);
+}
+
+function updateRunSelectedCount() {
+  const count = getSelectedRunProjects().length;
+  const el = document.getElementById('run-selected-count');
+  if (el) el.textContent = count ? `${count} process flow${count > 1 ? 's' : ''} selected` : 'No process flows selected';
+}
+
+document.getElementById('btn-run-select-all').addEventListener('click', () => {
+  document.querySelectorAll('.run-pf-cb:not(:disabled), .run-type-cb, .run-vc-cb').forEach(cb => cb.checked = true);
+  document.querySelectorAll('.run-type-cb, .run-vc-cb').forEach(cb => cb.indeterminate = false);
+  updateRunSelectedCount();
+});
+document.getElementById('btn-run-select-none').addEventListener('click', () => {
+  document.querySelectorAll('.run-pf-cb, .run-type-cb, .run-vc-cb').forEach(cb => { cb.checked = false; cb.indeterminate = false; });
+  updateRunSelectedCount();
+});
+
 document.getElementById('btn-run').addEventListener('click', async () => {
-  const project     = document.getElementById('run-project').value;
+  const selectedProjects = getSelectedRunProjects();
   const environment = document.getElementById('run-environment').value;
-  if (!project) { alert('Select a project.'); return; }
+  if (!selectedProjects.length) { alert('Select at least one process flow.'); return; }
 
   document.getElementById('run-output').textContent = '';
   document.getElementById('run-output-card').style.display = '';
@@ -663,7 +784,7 @@ document.getElementById('btn-run').addEventListener('click', async () => {
   btn.disabled = true; btn.textContent = 'Running…';
   try {
     await POST('/run', {
-      project,
+      projects: selectedProjects,
       environment,
       headed:        document.getElementById('run-headed').checked,
       stopOnFailure: document.getElementById('run-stop-on-failure').checked,
@@ -671,15 +792,15 @@ document.getElementById('btn-run').addEventListener('click', async () => {
     });
   } catch (e) {
     appendOutput('run-output', `Error: ${e.message}\n`);
-    btn.disabled = false; btn.textContent = 'Run';
+    btn.disabled = false; btn.textContent = 'Run Selected';
   }
 });
 
 function onRunDone(msg) {
   const btn = document.getElementById('btn-run');
-  btn.disabled = false; btn.textContent = 'Run';
+  btn.disabled = false; btn.textContent = 'Run Selected';
 
-  const line = msg.code === 0 ? '\n✅ Run complete.\n' : `\n❌ Run failed (exit ${msg.code})${msg.error ? ': ' + msg.error : ''}\n`;
+  const line = msg.code === 0 ? '\n--- Run complete. ---\n' : `\n--- Run failed (exit ${msg.code})${msg.error ? ': ' + msg.error : ''} ---\n`;
   appendOutput('run-output', line);
   // After a run completes, auto-refresh results so the new run appears immediately
   if (document.getElementById('tab-results').classList.contains('active')) loadResults();
@@ -1025,6 +1146,262 @@ function onEvaluateDone(msg) {
     openBtn.onclick = () => window.open(msg.htmlUrl, '_blank');
   }
 }
+// ── Catalog ──────────────────────────────────────────────────────────────────
+let catalog = null;
+let catEditNode = null; // { level:'vc'|'type'|'pf', v, t?, p? }
+
+async function loadCatalog() {
+  if (catalog) { renderCatalog(); return; }
+  try {
+    catalog = await GET('/catalog');
+  } catch {
+    catalog = { name: '', description: '', value_chains: [] };
+  }
+  document.getElementById('cat-name').value = catalog.name || '';
+  document.getElementById('cat-desc').value = catalog.description || '';
+  renderCatalog();
+}
+
+function syncCatalogMeta() {
+  if (!catalog) return;
+  catalog.name = document.getElementById('cat-name').value.trim();
+  catalog.description = document.getElementById('cat-desc').value.trim();
+}
+
+function renderCatalog() {
+  const container = document.getElementById('cat-tree-container');
+  if (!catalog || !catalog.value_chains) { container.innerHTML = '<p class="text-muted" style="text-align:center;padding:24px">No value chains yet. Click "+ Add Value Chain" to start.</p>'; return; }
+
+  let html = '';
+  for (let v = 0; v < catalog.value_chains.length; v++) {
+    const vc = catalog.value_chains[v];
+    const vcEditing = catEditNode && catEditNode.level === 'vc' && catEditNode.v === v;
+    html += `<div class="card cat-vc-card">`;
+    html += `<div class="cat-vc-header">
+      <code>${esc(vc.code || '?')}</code>
+      <strong>${esc(vc.name || '(unnamed)')}</strong>
+      ${vc.description ? '<span class="text-muted" style="font-size:12px;margin-left:8px">' + esc(vc.description) + '</span>' : ''}
+      <div class="cat-actions">
+        <button class="btn btn-secondary btn-sm" onclick="catEditVc(${v})">Edit</button>
+        <button class="btn btn-secondary btn-sm" onclick="catRemoveVc(${v})" style="color:var(--error)">Remove</button>
+      </div>
+    </div>`;
+
+    if (vcEditing) {
+      html += `<div class="cat-edit-form">
+        <input class="input input-sm" id="cat-ed-vc-code" value="${esc(vc.code || '')}" placeholder="Code (e.g. PRJ)" maxlength="10" style="width:100px;text-transform:uppercase">
+        <input class="input input-sm" id="cat-ed-vc-name" value="${esc(vc.name || '')}" placeholder="Name" style="flex:1">
+        <input class="input input-sm" id="cat-ed-vc-desc" value="${esc(vc.description || '')}" placeholder="Description" style="flex:1">
+        <button class="btn btn-primary btn-sm" onclick="catSaveVc(${v})">Done</button>
+      </div>`;
+    }
+
+    // Types within this VC
+    for (let t = 0; t < (vc.types || []).length; t++) {
+      const type = vc.types[t];
+      const typeEditing = catEditNode && catEditNode.level === 'type' && catEditNode.v === v && catEditNode.t === t;
+
+      html += `<div class="cat-type-block">
+        <div class="cat-type-header">
+          <code>${esc(vc.code)}-${esc(type.code || '?')}</code>
+          <strong>${esc(type.name || '(unnamed)')}</strong>
+          ${type.description ? '<span class="text-muted" style="font-size:12px;margin-left:6px">' + esc(type.description) + '</span>' : ''}
+          <div class="cat-actions">
+            <button class="btn btn-secondary btn-sm" onclick="catEditType(${v},${t})">Edit</button>
+            <button class="btn btn-secondary btn-sm" onclick="catRemoveType(${v},${t})" style="color:var(--error)">Remove</button>
+          </div>
+        </div>`;
+
+      if (typeEditing) {
+        html += `<div class="cat-edit-form">
+          <input class="input input-sm" id="cat-ed-type-code" value="${esc(type.code || '')}" placeholder="Code" maxlength="10" style="width:100px;text-transform:uppercase">
+          <input class="input input-sm" id="cat-ed-type-name" value="${esc(type.name || '')}" placeholder="Name" style="flex:1">
+          <input class="input input-sm" id="cat-ed-type-desc" value="${esc(type.description || '')}" placeholder="Description" style="flex:1">
+          <button class="btn btn-primary btn-sm" onclick="catSaveType(${v},${t})">Done</button>
+        </div>`;
+      }
+
+      // Process flows within this type
+      for (let p = 0; p < (type.process_flows || []).length; p++) {
+        const pf = type.process_flows[p];
+        const pfEditing = catEditNode && catEditNode.level === 'pf' && catEditNode.v === v && catEditNode.t === t && catEditNode.p === p;
+
+        html += `<div class="cat-pf-row">
+          <code>${esc(vc.code)}-${esc(type.code)}-${esc(pf.code || '?')}</code>
+          <span>${esc(pf.name || '(unnamed)')}</span>
+          <div class="cat-actions">
+            ${pf.name ? `<button class="btn btn-primary btn-sm" onclick="catOpenPfWorkflow(${v},${t},${p})">Open</button>` : ''}
+            <button class="btn btn-secondary btn-sm" onclick="catEditPf(${v},${t},${p})">Edit</button>
+            <button class="btn btn-secondary btn-sm" onclick="catRemovePf(${v},${t},${p})" style="color:var(--error)">Remove</button>
+          </div>
+        </div>`;
+
+        if (pfEditing) {
+          html += `<div class="cat-edit-form">
+            <input class="input input-sm" id="cat-ed-pf-code" value="${esc(pf.code || '')}" placeholder="Code" maxlength="10" style="width:100px;text-transform:uppercase">
+            <input class="input input-sm" id="cat-ed-pf-name" value="${esc(pf.name || '')}" placeholder="Name" style="flex:1">
+            <input class="input input-sm" id="cat-ed-pf-desc" value="${esc(pf.description || '')}" placeholder="Description" style="flex:1">
+            <button class="btn btn-primary btn-sm" onclick="catSavePf(${v},${t},${p})">Done</button>
+            <button class="btn btn-primary btn-sm" onclick="catSavePfAndOpen(${v},${t},${p})">Save & Open</button>
+          </div>`;
+        }
+      }
+      html += `<div class="cat-add-link" onclick="catAddPf(${v},${t})">+ Process Flow</div>`;
+      html += `</div>`; // type-block
+    }
+    html += `<div class="cat-add-link" onclick="catAddType(${v})">+ Type</div>`;
+    html += `</div>`; // vc-card
+  }
+  container.innerHTML = html;
+}
+
+// CRUD
+function catEditVc(v) { syncCatalogMeta(); catEditNode = { level: 'vc', v }; renderCatalog(); }
+function catSaveVc(v) {
+  syncCatalogMeta();
+  const vc = catalog.value_chains[v];
+  vc.code = (document.getElementById('cat-ed-vc-code').value || '').toUpperCase().trim();
+  vc.name = document.getElementById('cat-ed-vc-name').value.trim();
+  vc.description = document.getElementById('cat-ed-vc-desc').value.trim();
+  if (!vc.code) { alert('Code is required'); return; }
+  catEditNode = null; renderCatalog();
+}
+function catRemoveVc(v) {
+  if (!confirm(`Remove value chain "${catalog.value_chains[v].code || '(unnamed)'}" and all its contents?`)) return;
+  syncCatalogMeta(); catalog.value_chains.splice(v, 1); catEditNode = null; renderCatalog();
+}
+function catAddVc() {
+  syncCatalogMeta();
+  if (!catalog) catalog = { name: '', description: '', value_chains: [] };
+  if (!catalog.value_chains) catalog.value_chains = [];
+  catalog.value_chains.push({ code: '', name: '', description: '', types: [] });
+  catEditNode = { level: 'vc', v: catalog.value_chains.length - 1 }; renderCatalog();
+}
+
+function catEditType(v, t) { syncCatalogMeta(); catEditNode = { level: 'type', v, t }; renderCatalog(); }
+function catSaveType(v, t) {
+  syncCatalogMeta();
+  const type = catalog.value_chains[v].types[t];
+  type.code = (document.getElementById('cat-ed-type-code').value || '').toUpperCase().trim();
+  type.name = document.getElementById('cat-ed-type-name').value.trim();
+  type.description = document.getElementById('cat-ed-type-desc').value.trim();
+  if (!type.code) { alert('Code is required'); return; }
+  catEditNode = null; renderCatalog();
+}
+function catRemoveType(v, t) {
+  if (!confirm(`Remove type "${catalog.value_chains[v].types[t].code || '(unnamed)'}" and all its process flows?`)) return;
+  syncCatalogMeta(); catalog.value_chains[v].types.splice(t, 1); catEditNode = null; renderCatalog();
+}
+function catAddType(v) {
+  syncCatalogMeta();
+  if (!catalog.value_chains[v].types) catalog.value_chains[v].types = [];
+  catalog.value_chains[v].types.push({ code: '', name: '', description: '', process_flows: [] });
+  catEditNode = { level: 'type', v, t: catalog.value_chains[v].types.length - 1 }; renderCatalog();
+}
+
+function catEditPf(v, t, p) { syncCatalogMeta(); catEditNode = { level: 'pf', v, t, p }; renderCatalog(); }
+function catSavePf(v, t, p) {
+  syncCatalogMeta();
+  const pf = catalog.value_chains[v].types[t].process_flows[p];
+  pf.code = (document.getElementById('cat-ed-pf-code').value || '').toUpperCase().trim();
+  pf.name = document.getElementById('cat-ed-pf-name').value.trim();
+  pf.description = document.getElementById('cat-ed-pf-desc').value.trim();
+  if (!pf.code) { alert('Code is required'); return; }
+  pf.workflow_path = pf.name ? './' + pf.name : '';
+  catEditNode = null; renderCatalog();
+}
+async function catSavePfAndOpen(v, t, p) {
+  syncCatalogMeta();
+  const pf = catalog.value_chains[v].types[t].process_flows[p];
+  pf.code = (document.getElementById('cat-ed-pf-code').value || '').toUpperCase().trim();
+  pf.name = document.getElementById('cat-ed-pf-name').value.trim();
+  pf.description = document.getElementById('cat-ed-pf-desc').value.trim();
+  if (!pf.code) { alert('Code is required'); return; }
+  if (!pf.name) { alert('Name is required'); return; }
+  pf.workflow_path = './' + pf.name;
+  catEditNode = null; renderCatalog();
+  // Save catalog first
+  try { await POST('/catalog', catalog); } catch (e) { alert('Save failed: ' + e.message); return; }
+  // Open the workflow in the builder
+  catOpenPfWorkflow(v, t, p);
+}
+function catRemovePf(v, t, p) {
+  if (!confirm(`Remove process flow "${catalog.value_chains[v].types[t].process_flows[p].code || '(unnamed)'}"?`)) return;
+  syncCatalogMeta(); catalog.value_chains[v].types[t].process_flows.splice(p, 1); catEditNode = null; renderCatalog();
+}
+function catAddPf(v, t) {
+  syncCatalogMeta();
+  if (!catalog.value_chains[v].types[t].process_flows) catalog.value_chains[v].types[t].process_flows = [];
+  catalog.value_chains[v].types[t].process_flows.push({ code: '', name: '', description: '', workflow_path: '' });
+  catEditNode = { level: 'pf', v, t, p: catalog.value_chains[v].types[t].process_flows.length - 1 }; renderCatalog();
+}
+
+// Open an existing process flow workflow in the Workflow Designer
+async function catOpenPfWorkflow(v, t, p) {
+  const pf = catalog.value_chains[v].types[t].process_flows[p];
+  if (!pf.workflow_path) { alert('No workflow path set for this process flow.'); return; }
+  const projectName = pf.workflow_path.replace(/^\.\//, '');
+  // Ensure environments are loaded so we can find the default
+  if (!state.environments.length) {
+    state.environments = await GET('/environments').catch(() => []);
+  }
+  const defaultEnv = getDefaultEnvName();
+
+  // Switch to workflow tab first so the iframe is loaded
+  activateTab('workflow');
+  // Wait a tick for the iframe to be ready
+  await new Promise(r => setTimeout(r, 200));
+
+  // Load the workflow into the iframe
+  try {
+    const wf = await GET(`/projects/${encodeURIComponent(projectName)}/workflow`);
+    document.getElementById('wf-iframe').contentWindow.postMessage({
+      type: 'load-workflow', workflow: wf, project: projectName, environment: defaultEnv
+    }, '*');
+  } catch {
+    // No workflow.json yet — just activate the project in the iframe
+    document.getElementById('wf-iframe').contentWindow.postMessage({
+      type: 'load-workflow', workflow: null, project: projectName, environment: defaultEnv
+    }, '*');
+  }
+}
+
+// Save / Import / Export
+document.getElementById('btn-cat-save').addEventListener('click', async () => {
+  syncCatalogMeta();
+  try {
+    await POST('/catalog', catalog);
+    alert('Catalog saved to server.');
+  } catch (e) {
+    alert('Save failed: ' + e.message);
+  }
+});
+
+document.getElementById('btn-cat-export').addEventListener('click', () => {
+  syncCatalogMeta();
+  const blob = new Blob([JSON.stringify(catalog, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'catalog.json'; a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+document.getElementById('btn-cat-import').addEventListener('click', () => {
+  const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (!data.value_chains) { alert('Invalid catalog — missing value_chains'); return; }
+      catalog = data;
+      document.getElementById('cat-name').value = catalog.name || '';
+      document.getElementById('cat-desc').value = catalog.description || '';
+      catEditNode = null; renderCatalog();
+    } catch (err) { alert('Error: ' + err.message); }
+  };
+  input.click();
+});
+
+document.getElementById('btn-cat-add-vc').addEventListener('click', catAddVc);
+
 // ── Utils ─────────────────────────────────────────────────────────────────────
 function esc(s) {
   return String(s ?? '')

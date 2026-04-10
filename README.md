@@ -24,11 +24,13 @@ Automate Business Central page testing using YAML-based scripts executed via Pla
 - PowerShell generators for creating test variants
 - Project folders with BASE recordings and data files
 - **Workflow projects** with multi-user step definitions
+- **`catalog.json`** — 3-level test hierarchy (Waardeketen > Type > Procesflow)
 - [PAGE_SCRIPTING_QUICK_START.md](page-scripting/PAGE_SCRIPTING_QUICK_START.md) - Recording guide
 
 **`bc-replay/`** - Test execution including multi-user workflows
 - Script runner for automated pipelines
 - **Workflow orchestrator** for multi-user sequential execution
+- **Catalog runner** for executing workflows by hierarchy filter
 - **Native value capture** via BC's `copy-value` step (reads from replay log)
 - 📖 [BC_REPLAY_QUICK_START.md](bc-replay/BC_REPLAY_QUICK_START.md) - Execution guide
 - 📖 [bc-replay-capture-solution/](bc-replay/bc-replay-capture-solution/) - Value capture (superseded by native `copy-value`)
@@ -54,6 +56,35 @@ cd bc-replay
 Each step runs with its own credentials. Captured values (like a PO number) are automatically injected into the next step's native BC `parameters:` section.
 
 **See [page-scripting/PO Approval Workflow/](page-scripting/PO%20Approval%20Workflow/) for a working example.**
+
+## Test Catalog — 3-Level Hierarchy
+
+Organise workflows into a traceable hierarchy with user-defined codes and names:
+
+| Level | Name | Example Code | Example Name |
+|-------|------|-------------|-------------|
+| 1 | Waardeketen | `PRJ` | Projecten |
+| 2 | Type | `VG` | Vastgoed |
+| 3 | Procesflow | `TRAJECT` | Van traject naar project |
+
+**Composite code:** `PRJ-VG-TRAJECT` — used in reports and filtering.
+
+```powershell
+# Validate catalog structure
+cd bc-replay
+.\Test-Catalog.ps1
+
+# Run all workflows under a value chain
+.\Run-CatalogWorkflows.ps1 -Filter "PRJ"
+
+# Run a specific type
+.\Run-CatalogWorkflows.ps1 -Filter "INK-PO"
+
+# Generate aggregate dashboard
+.\New-CatalogReport.ps1
+```
+
+The catalog is defined in [page-scripting/catalog.json](page-scripting/catalog.json). Each workflow can include an optional `catalog` block in its `workflow.json` for back-reference.
 
 ##  Security
 

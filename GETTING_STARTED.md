@@ -78,14 +78,41 @@ cd ..\bc-replay
 - **`page-scripting/`** - Script generation and variant automation
   - PowerShell generators and project folders
   - Workflow projects with multi-user step definitions
+  - `catalog.json` — 3-level test hierarchy (Waardeketen > Type > Procesflow)
 
 - **`bc-replay/`** - Test execution
   - `Run-BCWorkflow.ps1` — multi-user workflow orchestrator
+  - `Run-CatalogWorkflows.ps1` — run workflows by hierarchy filter
+  - `Test-Catalog.ps1` — validate catalog structure
+  - `New-CatalogReport.ps1` — aggregate dashboard report
   - `npx-run.ps1` — single-user variant batch runner
 
 - **`tools/workflow-builder/`** - Visual Workflow Builder (open `index.html` in browser)
 
 - **`docs/`** - Visual overview and architecture
+
+## Test Catalog
+
+Workflows are organised into a 3-level hierarchy for traceability:
+
+**Waardeketen** (value chain) > **Type** > **Procesflow**
+
+Each level has a user-defined code and name. Composite codes (e.g. `PRJ-VG-TRAJECT`) are used in reports and filtering.
+
+```powershell
+# Validate catalog
+cd bc-replay
+.\Test-Catalog.ps1
+
+# Run all workflows in a value chain
+.\Run-CatalogWorkflows.ps1 -Filter "PRJ"
+
+# Generate aggregate report
+.\New-CatalogReport.ps1
+# Open page-scripting/catalog-report.html to view the dashboard
+```
+
+The Workflow Builder includes a **Catalog** button (header) to view the full hierarchy and a **Catalog Position** section (sidebar) to assign workflows to their place in the hierarchy.
 
 ## Next Steps
 

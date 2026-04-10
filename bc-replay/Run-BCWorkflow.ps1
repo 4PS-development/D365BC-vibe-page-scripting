@@ -231,6 +231,7 @@ foreach ($step in $workflow.steps) {
     if ($step.inject) {
         foreach ($prop in $step.inject.PSObject.Properties) {
             $ref = $prop.Value
+            if ($ref -match '^\{powerfx:') { continue }   # Power Fx expressions are passed through to BC natively
             if ($ref -match '\{capture\.([^.]+)\.([^}]+)\}') {
                 $srcStep = $Matches[1]
                 $srcVar  = $Matches[2]
@@ -676,6 +677,11 @@ foreach ($step in $workflow.steps) {
                         Write-Warning "  Capture reference not found: capture.$sourceStep.$sourceField"
                         $substitutions[$key] = ""
                     }
+                }
+                # Resolve {powerfx:EXPRESSION} — pass through as-is; BC page scripting evaluates Power Fx natively
+                elseif ($value -match '^\{powerfx:(.+)\}$') {
+                    $substitutions[$key] = $Matches[1]
+                    Write-Host "  Power Fx: $key = $($Matches[1])" -ForegroundColor DarkMagenta
                 } else {
                     $substitutions[$key] = $value
                 }
@@ -870,12 +876,46 @@ Write-Host "State saved: $statePath" -ForegroundColor DarkGray
 # ── Generate workflow summary report ───────────────────────────────────────
 $workflowEnd = Get-Date
 
-New-WorkflowReport `
-    -WorkflowName $workflow.name `
-    -StepResults $stepResults `
-    -OutputDir $ResultDir `
-    -WorkflowStart $workflowStart `
-    -WorkflowEnd $workflowEnd
+# Resolve catalog breadcrumb if catalog metadata is present in workflow.json
+$catalogBreadcrumb = $null
+$compositeCode = $null
+if ($workflow.catalog) {
+    $cat = $workflow.catalog
+    # Try to resolve display names from catalog.json
+    $catalogJsonPath = Join-Path $workflowFolder "..\catalog.json"
+    if (Test-Path $catalogJsonPath) {
+        try {
+            $catalogData = Get-Content $catalogJsonPath -Raw | ConvertFrom-Json
+            $vcNode = $catalogData.value_chains | Where-Object { $_.code -eq $cat.value_chain } | Select-Object -First 1
+            $typeNode = if ($vcNode) { $vcNode.types | Where-Object { $_.code -eq $cat.type } | Select-Object -First 1 } else { $null }
+            $pfNode = if ($typeNode) { $typeNode.process_flows | Where-Object { $_.code -eq $cat.process_flow } | Select-Object -First 1 } else { $null }
+            $vcName   = if ($vcNode)   { $vcNode.name }   else { $cat.value_chain }
+            $typeName = if ($typeNode) { $typeNode.name }  else { $cat.type }
+            $pfName   = if ($pfNode)   { $pfNode.name }   else { $cat.process_flow }
+            $catalogBreadcrumb = "$vcName > $typeName > $pfName"
+            $compositeCode = "$($cat.value_chain)-$($cat.type)-$($cat.process_flow)"
+        } catch {
+            # Fall back to codes only
+            $catalogBreadcrumb = "$($cat.value_chain) > $($cat.type) > $($cat.process_flow)"
+            $compositeCode = "$($cat.value_chain)-$($cat.type)-$($cat.process_flow)"
+        }
+    } else {
+        $catalogBreadcrumb = "$($cat.value_chain) > $($cat.type) > $($cat.process_flow)"
+        $compositeCode = "$($cat.value_chain)-$($cat.type)-$($cat.process_flow)"
+    }
+}
+
+$reportArgs = @{
+    WorkflowName = $workflow.name
+    StepResults  = $stepResults
+    OutputDir    = $ResultDir
+    WorkflowStart = $workflowStart
+    WorkflowEnd  = $workflowEnd
+}
+if ($catalogBreadcrumb) { $reportArgs.CatalogBreadcrumb = $catalogBreadcrumb }
+if ($compositeCode)     { $reportArgs.CompositeCode = $compositeCode }
+
+New-WorkflowReport @reportArgs
 
 # ── Summary ────────────────────────────────────────────────────────────────
 $passed  = ($stepResults | Where-Object { $_.status -eq "passed" }).Count

@@ -246,6 +246,20 @@ app.post('/api/environments', async (req, res) => {
   }
 });
 
+// Set an environment as the default
+app.patch('/api/environments/:name/default', (req, res) => {
+  try {
+    const envs = readEnvs();
+    const target = envs.find(e => e.name === req.params.name);
+    if (!target) return res.status(404).json({ error: 'Not found' });
+    envs.forEach(e => { e.isDefault = (e.name === req.params.name); });
+    writeEnvs(envs);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Export environment credentials to a project's users.json
 app.post('/api/environments/:name/export', async (req, res) => {
   try {
@@ -384,6 +398,26 @@ app.get('/api/projects', (_req, res) => {
   } catch { res.json([]); }
 });
 
+app.get('/api/catalog', (_req, res) => {
+  const catalogPath = path.join(ROOT, 'page-scripting', 'catalog.json');
+  if (!fs.existsSync(catalogPath)) return res.status(404).json({ error: 'catalog.json not found' });
+  try {
+    res.json(JSON.parse(fs.readFileSync(catalogPath, 'utf8')));
+  } catch (e) {
+    res.status(500).json({ error: `Invalid catalog.json: ${e.message}` });
+  }
+});
+
+app.post('/api/catalog', (req, res) => {
+  const catalogPath = path.join(ROOT, 'page-scripting', 'catalog.json');
+  try {
+    fs.writeFileSync(catalogPath, JSON.stringify(req.body, null, 2), 'utf8');
+    res.json({ ok: true, path: catalogPath });
+  } catch (e) {
+    res.status(500).json({ error: `Failed to save catalog.json: ${e.message}` });
+  }
+});
+
 app.get('/api/projects/:name/scripts', (req, res) => {
   const projectDir = path.join(ROOT, 'page-scripting', req.params.name);
   const collect = (dir) => {
@@ -477,8 +511,10 @@ app.post('/api/variants/generate', (req, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 app.post('/api/run', async (req, res) => {
-  const { project, environment, headed, stopOnFailure, dryRun } = req.body;
-  if (!project) return res.status(400).json({ error: 'project is required' });
+  const { project, projects: projectList, environment, headed, stopOnFailure, dryRun } = req.body;
+  // Support both single project (legacy) and array of projects
+  const projectsToRun = projectList && projectList.length ? projectList : (project ? [project] : []);
+  if (!projectsToRun.length) return res.status(400).json({ error: 'project(s) required' });
 
   // Build a temporary users.json from the credential store
   let tempUsersPath = null;
@@ -505,24 +541,43 @@ app.post('/api/run', async (req, res) => {
   res.json({ ok: true });
 
   const psScript = path.join(ROOT, 'bc-replay', 'Run-BCWorkflow.ps1');
-  const projectPath = path.join(ROOT, 'page-scripting', project);
-  const extraArgs = ['-WorkflowPath', projectPath, '-UsersPath', tempUsersPath];
+  const extraCommon = [];
+  if (headed)          extraCommon.push('-Headed');
+  if (dryRun)          extraCommon.push('-DryRun');
+  if (stopOnFailure === false) extraCommon.push('-StopOnFailure:$false');
 
-  if (headed)          extraArgs.push('-Headed');
-  if (dryRun)          extraArgs.push('-DryRun');
-  if (stopOnFailure === false) extraArgs.push('-StopOnFailure:$false');
-
-  const proc = spawnPsFile(psScript, extraArgs, { cwd: path.join(ROOT, 'bc-replay') });
-  proc.stdout.on('data', d => broadcast({ type: 'run-output', data: d.toString() }));
-  proc.stderr.on('data', d => broadcast({ type: 'run-output', data: d.toString() }));
-  proc.on('close', code => {
-    broadcast({ type: 'run-done', code });
-    try { if (tempUsersPath) fs.unlinkSync(tempUsersPath); } catch {}
-  });
-  proc.on('error', e => {
-    broadcast({ type: 'run-done', code: 1, error: e.message });
-    try { if (tempUsersPath) fs.unlinkSync(tempUsersPath); } catch {}
-  });
+  // Run projects sequentially
+  let idx = 0;
+  function runNext() {
+    if (idx >= projectsToRun.length) {
+      broadcast({ type: 'run-done', code: 0 });
+      try { if (tempUsersPath) fs.unlinkSync(tempUsersPath); } catch {}
+      return;
+    }
+    const projName = projectsToRun[idx];
+    idx++;
+    broadcast({ type: 'run-output', data: `\n=== [${idx}/${projectsToRun.length}] ${projName} ===\n` });
+    const projectPath = path.join(ROOT, 'page-scripting', projName);
+    const extraArgs = ['-WorkflowPath', projectPath, '-UsersPath', tempUsersPath, ...extraCommon];
+    const proc = spawnPsFile(psScript, extraArgs, { cwd: path.join(ROOT, 'bc-replay') });
+    proc.stdout.on('data', d => broadcast({ type: 'run-output', data: d.toString() }));
+    proc.stderr.on('data', d => broadcast({ type: 'run-output', data: d.toString() }));
+    proc.on('close', code => {
+      if (code !== 0 && stopOnFailure !== false) {
+        broadcast({ type: 'run-output', data: `\n--- ${projName} failed (exit ${code}) — stopping. ---\n` });
+        broadcast({ type: 'run-done', code });
+        try { if (tempUsersPath) fs.unlinkSync(tempUsersPath); } catch {}
+        return;
+      }
+      runNext();
+    });
+    proc.on('error', e => {
+      broadcast({ type: 'run-output', data: `\n--- ${projName} error: ${e.message} ---\n` });
+      broadcast({ type: 'run-done', code: 1, error: e.message });
+      try { if (tempUsersPath) fs.unlinkSync(tempUsersPath); } catch {}
+    });
+  }
+  runNext();
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
