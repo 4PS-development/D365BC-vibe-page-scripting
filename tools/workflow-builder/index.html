@@ -66,8 +66,17 @@ main { flex: 1; display: flex; overflow: hidden; }
 .sidebar {
   width: 300px; min-width: 300px; background: var(--surface);
   border-right: 1px solid var(--border); display: flex; flex-direction: column;
-  overflow-y: auto;
+  overflow-y: auto; transition: width 0.2s, min-width 0.2s;
 }
+.sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; padding: 0; border-right: none; }
+.sidebar-toggle {
+  width: 24px; min-width: 24px; display: flex; align-items: flex-start;
+  justify-content: center; padding-top: 12px;
+  background: var(--surface); border: none; border-right: 1px solid var(--border);
+  cursor: pointer; color: var(--text-muted); font-size: 12px;
+  transition: background 0.15s;
+}
+.sidebar-toggle:hover { background: var(--bg); color: var(--primary); }
 .sidebar-section { padding: 16px; border-bottom: 1px solid var(--border); }
 .sidebar-section h3 {
   font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
@@ -649,8 +658,11 @@ textarea { resize: vertical; min-height: 50px; }
 <!-- ── Main ────────────────────────────────────────────────────────── -->
 <main>
 
-  <!-- ── Left Sidebar ──────────────────────────────────────────────── -->
-  <div class="sidebar">
+  <!-- ── Sidebar toggle + Left Sidebar ──────────────────────────────────── -->
+  <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 4l-4 4 4 4"/></svg>
+  </button>
+  <div class="sidebar collapsed" id="main-sidebar">
     <!-- Workflow Settings -->
     <div class="sidebar-section">
       <h3>Workflow Settings</h3>
@@ -662,18 +674,11 @@ textarea { resize: vertical; min-height: 50px; }
         <label for="wf-desc">Description</label>
         <textarea id="wf-desc" rows="2" placeholder="What does this workflow do?" oninput="updateWorkflowMeta()"></textarea>
       </div>
-      <div class="field-group">
-        <label for="wf-env">Environment</label>
-        <select id="wf-env" onchange="onEnvironmentChange()">
-          <option value="">— select environment —</option>
-        </select>
-        <p class="text-sm text-muted mt-2" id="wf-env-hint" style="font-size:11px;color:var(--text-muted)">Select an environment to auto-populate roles and URL.</p>
-      </div>
-      <div class="field-group">
-        <label for="wf-url">BC Environment URL</label>
-        <input id="wf-url" placeholder="https://businesscentral.dynamics.com/..." oninput="updateWorkflowMeta()">
-      </div>
     </div>
+    <!-- Hidden select kept for programmatic environment loading -->
+    <select id="wf-env" style="display:none" onchange="onEnvironmentChange()">
+      <option value="">— select environment —</option>
+    </select>
 
     <!-- Test Catalog -->
     <div class="sidebar-section" id="catalog-section">
@@ -684,12 +689,7 @@ textarea { resize: vertical; min-height: 50px; }
       <div id="cat-composite" class="cat-tree-current"></div>
     </div>
 
-    <!-- User Roles -->
-    <div class="sidebar-section">
-      <h3>User Roles</h3>
-      <div id="users-list"></div>
-      <p class="text-sm text-muted mt-2" id="users-empty">Roles are loaded from the selected environment.</p>
-    </div>
+    <!-- User Roles — managed via environment settings and visible as swim lanes -->
 
     <!-- Script Library -->
     <div class="sidebar-section">
@@ -724,15 +724,7 @@ textarea { resize: vertical; min-height: 50px; }
       </div>
     </div>
 
-    <!-- App Registrations -->
-    <div class="sidebar-section">
-      <h3 class="flex justify-between items-center">
-        App Registrations
-        <button class="btn-sm" onclick="importAppRegistrations()" title="Import app-registrations.json">Import</button>
-      </h3>
-      <div id="app-reg-list"></div>
-      <p class="text-sm text-muted mt-2" id="app-reg-empty">Import app-registrations.json to configure API credentials.</p>
-    </div>
+    <!-- App Registrations — loaded automatically from environment settings -->
 
     <!-- Help nav item -->
     <div class="sidebar-section" id="sidebar-help" style="padding:0">
@@ -1393,15 +1385,12 @@ function parseYamlBasic(text) {
 function updateWorkflowMeta() {
   state.workflow.name = document.getElementById('wf-name').value;
   state.workflow.description = document.getElementById('wf-desc').value;
-  state.workflow.bc_url = document.getElementById('wf-url').value;
-  state.environment = document.getElementById('wf-env').value || null;
   document.getElementById('workflow-title-display').textContent = state.workflow.name || '';
 }
 
 function loadMetaToForm() {
   document.getElementById('wf-name').value = state.workflow.name || '';
   document.getElementById('wf-desc').value = state.workflow.description || '';
-  document.getElementById('wf-url').value = state.workflow.bc_url || '';
   document.getElementById('workflow-title-display').textContent = state.workflow.name || '';
   const envSel = document.getElementById('wf-env');
   if (envSel) envSel.value = state.environment || '';
@@ -1544,14 +1533,26 @@ async function onEnvironmentChange() {
     if (!res.ok) { toast('Could not load environment', 'error'); return; }
     const env = await res.json();
 
-    // Fill URL if not already set
-    if (env.url && !document.getElementById('wf-url').value) {
-      document.getElementById('wf-url').value = env.url;
+    // Always set URL from environment
+    if (env.url) {
       state.workflow.bc_url = env.url;
     }
 
     // Store available companies
     state.companies = env.companies || [];
+
+    // Auto-populate app registration from environment
+    if (env.appRegistration && env.appRegistration.clientId) {
+      const regKey = envName;
+      state.appRegistrations[regKey] = {
+        client_id: env.appRegistration.clientId || '',
+        client_secret_hint: env.appRegistration.hasSecret ? '***' : '(not set)',
+        tenant_id: env.appRegistration.tenantId || '',
+        company_id: env.appRegistration.companyId || '',
+        description: `Auto-loaded from ${envName}`
+      };
+      renderAppRegistrations();
+    }
 
     // Populate roles
     if (env.roles && env.roles.length) {
@@ -1602,8 +1603,9 @@ function removeUser(key) {
 function renderUsers() {
   const list = document.getElementById('users-list');
   const empty = document.getElementById('users-empty');
+  if (!list) return;
   const keys = Object.keys(state.users);
-  empty.classList.toggle('hidden', keys.length > 0);
+  if (empty) empty.classList.toggle('hidden', keys.length > 0);
 
   list.innerHTML = keys.map(key => {
     const u = state.users[key];
@@ -3525,10 +3527,11 @@ function activateProject(name, envName) {
     document.getElementById('wf-name').value = name;
     document.getElementById('workflow-title-display').textContent = name;
   }
-  // Apply environment — populates URL and roles
+  // Apply environment — populates URL, roles and app registrations
   loadEnvironmentsSelect().then(() => {
     if (envName) {
-      document.getElementById('wf-env').value = envName;
+      const envSel = document.getElementById('wf-env');
+      if (envSel) envSel.value = envName;
       onEnvironmentChange();
     }
   });
@@ -3874,6 +3877,20 @@ function toggleHelpAcc(id) {
   document.querySelectorAll('.help-acc-item').forEach(i => i.classList.remove('open'));
   // Toggle clicked
   if (!isOpen) item.classList.add('open');
+}
+
+function toggleSidebar() {
+  const sb = document.getElementById('main-sidebar');
+  const btn = document.getElementById('sidebar-toggle');
+  if (!sb) return;
+  sb.classList.toggle('collapsed');
+  // Flip arrow direction
+  if (btn) {
+    const isCollapsed = sb.classList.contains('collapsed');
+    btn.innerHTML = isCollapsed
+      ? '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>'
+      : '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 4l-4 4 4 4"/></svg>';
+  }
 }
 
 function scrollToSidebarHelp() { showHelp(); }
