@@ -172,7 +172,7 @@ main { flex: 1; display: flex; overflow: hidden; }
 }
 
 /* ── Form Fields ───────────────────────────────────────────────────── */
-label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; color: var(--text-muted); }
+label { display: flex; align-items: center; font-size: 12px; font-weight: 500; margin-bottom: 4px; color: var(--text-muted); gap: 0; }
 input, select, textarea {
   width: 100%; padding: 7px 10px; border: 1px solid var(--border);
   border-radius: var(--radius); font-size: 13px; color: var(--text);
@@ -182,6 +182,43 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
 textarea { resize: vertical; min-height: 50px; }
 .field-group { margin-bottom: 12px; }
 .field-row { display: flex; gap: 8px; align-items: flex-end; }
+
+/* ── Field Tips (?  icons) ─────────────────────────────────────────── */
+.field-tip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 50%; font-size: 10px; font-weight: 700;
+  color: var(--text-muted); border: 1px solid var(--border); background: var(--bg);
+  cursor: help; position: relative; vertical-align: middle; margin-left: 5px;
+  line-height: 1; flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.field-tip:hover { color: var(--primary); border-color: var(--primary); background: var(--primary-light); }
+.field-tip .field-tip-text {
+  display: none; position: absolute; left: 50%; bottom: calc(100% + 8px);
+  transform: translateX(-50%); width: 240px; padding: 8px 10px;
+  background: var(--header-bg); color: #fff; font-size: 11px; font-weight: 400;
+  border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  line-height: 1.5; z-index: 50; pointer-events: none; text-align: left;
+  white-space: normal;
+}
+.field-tip .field-tip-text::after {
+  content: ''; position: absolute; left: 50%; top: 100%;
+  transform: translateX(-50%); border: 6px solid transparent;
+  border-top-color: var(--header-bg);
+}
+.field-tip:hover .field-tip-text { display: block; }
+
+/* ── Existing Workflow Picker (catalog editor) ─────────────────────── */
+.cat-ed-existing-picker {
+  margin: 6px 0 4px; padding: 8px 10px;
+  background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius);
+}
+.cat-ed-existing-picker select {
+  font-size: 12px; padding: 5px 8px;
+}
+.cat-ed-existing-picker .picker-hint {
+  font-size: 10px; color: #1e40af; margin-top: 4px;
+}
 
 /* ── Canvas (center) ───────────────────────────────────────────────── */
 .canvas {
@@ -667,11 +704,11 @@ textarea { resize: vertical; min-height: 50px; }
     <div class="sidebar-section">
       <h3>Workflow Settings</h3>
       <div class="field-group">
-        <label for="wf-name">Name</label>
+        <label for="wf-name">Name <span class="field-tip" tabindex="0">?<span class="field-tip-text">Human-readable workflow name. Appears in test reports and in workflow.json as the "name" field.</span></span></label>
         <input id="wf-name" placeholder="e.g. Purchase Order Approval" oninput="updateWorkflowMeta()">
       </div>
       <div class="field-group">
-        <label for="wf-desc">Description</label>
+        <label for="wf-desc">Description <span class="field-tip" tabindex="0">?<span class="field-tip-text">Optional free-text description of what this workflow tests. Stored in workflow.json.</span></span></label>
         <textarea id="wf-desc" rows="2" placeholder="What does this workflow do?" oninput="updateWorkflowMeta()"></textarea>
       </div>
     </div>
@@ -682,7 +719,7 @@ textarea { resize: vertical; min-height: 50px; }
 
     <!-- Test Catalog -->
     <div class="sidebar-section" id="catalog-section">
-      <h3>Catalog Position</h3>
+      <h3>Catalog Position <span class="field-tip" tabindex="0">?<span class="field-tip-text">Assign this workflow to a position in the 3-level test catalog (Waardeketen > Type > Procesflow). Click a process flow to link the current workflow.</span></span></h3>
       <div id="catalog-tree" class="cat-tree">
         <!-- populated by renderCatalogSidebar() -->
       </div>
@@ -693,7 +730,7 @@ textarea { resize: vertical; min-height: 50px; }
 
     <!-- Script Library -->
     <div class="sidebar-section">
-      <h3>Script Library</h3>
+      <h3>Script Library <span class="field-tip" tabindex="0">?<span class="field-tip-text">Upload recorded .yml page scripts here. These scripts can then be assigned to workflow steps. The builder auto-detects parameters and captures from each script.</span></span></h3>
       <div id="scripts-drop-zone" class="drop-zone"
            ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)"
            ondrop="handleScriptDrop(event)" onclick="openFileChooser()">
@@ -706,7 +743,7 @@ textarea { resize: vertical; min-height: 50px; }
 
     <!-- API Components -->
     <div class="sidebar-section">
-      <h3>API Components</h3>
+      <h3>API Components <span class="field-tip" tabindex="0">?<span class="field-tip-text">Pre-built BC REST API step templates. Click or drag a component to add an API step to the canvas. Requires an App Registration for OAuth2 authentication.</span></span></h3>
       <p class="text-sm text-muted mb-2">Click or drag a component to add an API step. A <em>system</em> lane is created automatically.</p>
       <div class="api-chip" draggable="true" onclick="addApiStep('bc-api-generic')" ondragstart="dragApiComponent(event, 'bc-api-generic')" title="Click to add, or drag onto the canvas">
         <span class="api-chip-icon">&#9889;</span>
@@ -2197,19 +2234,19 @@ function renderPropertiesApi(step) {
     </div>
 
     <div class="field-group">
-      <label>Step ID</label>
+      <label>Step ID ${fieldTip('Machine-readable identifier. Used in depends_on references between steps. Must be unique.')}</label>
       <input value="${escAttr(step.id)}" onchange="updateStepField('${escAttr(step.id)}', 'id', this.value)">
     </div>
     <div class="field-group">
-      <label>Step Name</label>
+      <label>Step Name ${fieldTip('Human-readable label shown on the canvas card and in reports.')}</label>
       <input value="${escAttr(step.name)}" onchange="updateStepField('${escAttr(step.id)}', 'name', this.value)">
     </div>
     <div class="field-group">
-      <label>Description <small style="font-weight:400;color:var(--text-muted)">&#8212; shown on canvas card</small></label>
+      <label>Description ${fieldTip('Short description shown on the canvas card. Helps others understand what this step does.')}</label>
       <textarea rows="2" onchange="updateStepField('${escAttr(step.id)}', 'description', this.value)" placeholder="Short description of what this step does...">${escHtml(step.description || '')}</textarea>
     </div>
     <div class="field-group">
-      <label>Swim Lane (User Role)</label>
+      <label>Swim Lane (User Role) ${fieldTip('Determines which column this step appears in on the canvas. API steps typically use a "system" lane.')}</label>
       <select onchange="updateStepField('${escAttr(step.id)}', 'user', this.value)">
         <option value="">-- select lane --</option>
         ${userOptions}
@@ -2219,7 +2256,7 @@ function renderPropertiesApi(step) {
     ${noRegWarning}
 
     <div class="field-group">
-      <label>App Registration</label>
+      <label>App Registration ${fieldTip('OAuth2 credentials used to authenticate against the BC API. Provides clientId, clientSecret, tenantId.')}</label>
       <select onchange="updateStepField('${escAttr(step.id)}', 'app_registration', this.value)">
         <option value="">-- select registration --</option>
         ${regOptions}
@@ -2228,7 +2265,7 @@ function renderPropertiesApi(step) {
     </div>
 
     <div class="field-group">
-      <label>HTTP Method</label>
+      <label>HTTP Method ${fieldTip('The HTTP verb: GET to read, POST to create, PATCH to update, DELETE to remove a resource.')}</label>
       <select onchange="updateStepField('${escAttr(step.id)}', 'method', this.value)">
         ${['GET','POST','PATCH','PUT','DELETE'].map(m =>
           `<option ${step.method === m ? 'selected' : ''}>${m}</option>`
@@ -2237,7 +2274,7 @@ function renderPropertiesApi(step) {
     </div>
 
     <div class="field-group">
-      <label>Endpoint URL</label>
+      <label>Endpoint URL ${fieldTip('Full BC API URL. Use {{tenantId}}, {{environmentName}}, {{companyId}} placeholders \u2014 resolved from the app registration. Use {capture.stepId.varName} for captured values.')}</label>
       <textarea rows="3" onchange="updateStepField('${escAttr(step.id)}', 'endpoint', this.value)"
         placeholder="https://...api.bc.dynamics.com/v2.0/{{tenantId}}/{{environmentName}}/..."
         style="font-family:monospace;font-size:11px">${escHtml(step.endpoint || '')}</textarea>
@@ -2245,14 +2282,14 @@ function renderPropertiesApi(step) {
     </div>
 
     <div class="field-group">
-      <label>Request Body (JSON)</label>
+      <label>Request Body (JSON) ${fieldTip('JSON body sent with POST/PATCH requests. Values can reference captured values with {capture.stepId.varName} syntax.')}</label>
       <textarea rows="6" onchange="updateApiBody('${escAttr(step.id)}', this.value)"
         placeholder="{}" style="font-family:monospace;font-size:11px">${escHtml(bodyJson)}</textarea>
       <span class="text-sm text-muted">Values can contain <code>{capture.stepId.varName}</code> references.</span>
     </div>
 
     <div class="field-group">
-      <label>Depends On</label>
+      <label>Depends On ${fieldTip('Which step must complete before this one runs. Controls execution order. Leave empty for the first step.')}</label>
       <select onchange="updateStepField('${escAttr(step.id)}', 'depends_on', this.value || null)">
         <option value="">-- none --</option>
         ${depOptions}
@@ -2261,7 +2298,7 @@ function renderPropertiesApi(step) {
 
     <div class="mt-4">
       <label class="flex justify-between items-center">
-        <strong>Response Captures</strong>
+        <strong>Response Captures</strong> ${fieldTip('Extract values from the API JSON response for use in later steps. Variable is the name you choose; JSONPath is the path in the response (e.g. $.id).')}
         <span class="add-row-btn" onclick="addApiCapture('${escAttr(step.id)}')">+ Add</span>
       </label>
       <span class="text-sm text-muted">Extract values from the API response for use in later steps.</span>
@@ -2490,26 +2527,26 @@ function renderPropertiesReplay(step) {
 
   panel.innerHTML = `
     <div class="field-group">
-      <label>Step ID</label>
+      <label>Step ID ${fieldTip('Machine-readable identifier used in depends_on references. Must be unique across the workflow.')}</label>
       <input value="${escAttr(step.id)}" onchange="updateStepField('${escAttr(step.id)}', 'id', this.value)">
     </div>
     <div class="field-group">
-      <label>Step Name</label>
+      <label>Step Name ${fieldTip('Human-readable label shown on the canvas card and exported to workflow.json.')}</label>
       <input value="${escAttr(step.name)}" onchange="updateStepField('${escAttr(step.id)}', 'name', this.value)">
     </div>
     <div class="field-group">
-      <label>Description <small style="font-weight:400;color:var(--text-muted)">&#8212; shown on canvas card</small></label>
+      <label>Description ${fieldTip('Short description shown on the step card. Helps others understand the purpose of this step.')}</label>
       <textarea rows="2" onchange="updateStepField('${escAttr(step.id)}', 'description', this.value)" placeholder="Short description of what this step does...">${escHtml(step.description || '')}</textarea>
     </div>
     <div class="field-group">
-      <label>User Role</label>
+      <label>User Role ${fieldTip('The actor who executes this step. Maps to a user in users.json with real BC credentials.')}</label>
       <select onchange="updateStepField('${escAttr(step.id)}', 'user', this.value)">
         <option value="">-- select role --</option>
         ${userOptions}
       </select>
     </div>
     <div class="field-group">
-      <label>Company <small style="font-weight:400;color:var(--text-muted)">— optional, per step</small></label>
+      <label>Company ${fieldTip('Override the BC company for this step. Leave empty to use the default company from the BC URL.')}</label>
       <select onchange="updateStepField('${escAttr(step.id)}', 'company', this.value || null)">
         <option value="">-- default (from BC URL) --</option>
         ${companyOptions}
@@ -2518,7 +2555,7 @@ function renderPropertiesReplay(step) {
     </div>
     <div class="field-group">
       <label class="flex justify-between items-center">
-        Scripts (.yml)
+        Scripts (.yml) ${fieldTip('Assign one or more .yml page scripts to this step. Scripts run in order. Upload scripts in the sidebar Script Library first.')}
         ${addableScriptOptions ? `<span class="add-row-btn" onclick="toggleAddScriptSelect('${escAttr(step.id)}')">+ Add</span>` : ''}
       </label>
       ${scriptsListHtml || '<div class="text-sm text-muted">No scripts assigned.</div>'}
@@ -2531,7 +2568,7 @@ function renderPropertiesReplay(step) {
       <span class="text-sm text-muted" style="margin-top:4px">Scripts run in order. Or drag from the library onto the step card.</span>
     </div>
     <div class="field-group">
-      <label>Depends On</label>
+      <label>Depends On ${fieldTip('Which step must complete before this one starts. Controls execution order. Leave empty for the first step in the workflow.')}</label>
       <select onchange="updateStepField('${escAttr(step.id)}', 'depends_on', this.value || null)">
         <option value="">-- none --</option>
         ${depOptions}
@@ -2542,7 +2579,7 @@ function renderPropertiesReplay(step) {
 
     <div class="mt-4">
       <label class="flex justify-between items-center">
-        <strong>Captures</strong>
+        <strong>Captures</strong> ${fieldTip('Values read from BC during this step (via copy-value in the script) and stored for use in later steps. Variable is the name; copy-value name must match the name: field in the .yml script.')}
         <span class="add-row-btn" onclick="addCapture('${escAttr(step.id)}')">+ Add</span>
       </label>
       <span class="text-sm text-muted">Values this step captures (via copy-value) for later steps.</span>
@@ -2554,7 +2591,7 @@ function renderPropertiesReplay(step) {
 
     <div class="mt-4">
       <label class="flex justify-between items-center">
-        <strong>Injects</strong>
+        <strong>Injects</strong> ${fieldTip('Map captured values from earlier steps (or Power Fx expressions) to script parameters. Parameter is the target in the .yml script; Source is where the value comes from.')}
         ${canAddInject ? `<span class="add-row-btn" onclick="addInject('${escAttr(step.id)}')" title="Map a captured or Power Fx value to a script parameter">+ Add mapping</span>` : ''}
       </label>
       <span class="text-sm text-muted">Pass captured values or Power Fx expressions to this script's parameters.</span>
@@ -3643,6 +3680,11 @@ async function saveToCurrentProject() {
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function escAttr(s) { return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
 
+/** Render a ? tooltip icon. Usage: `${fieldTip('Your help text here')}` */
+function fieldTip(text) {
+  return `<span class="field-tip" tabindex="0">?<span class="field-tip-text">${escHtml(text)}</span></span>`;
+}
+
 function toast(msg, type = 'info') {
   const container = document.getElementById('toast-container');
   const el = document.createElement('div');
@@ -3823,6 +3865,41 @@ window.addEventListener('message', function(evt) {
 
     if (msg.project) {
       state.currentProject = msg.project;
+
+      // Load script files so parameter/capture metadata is available
+      fetch(`/api/projects/${encodeURIComponent(msg.project)}/scripts`)
+        .then(r => r.ok ? r.json() : [])
+        .then(scriptFiles => {
+          for (const sf of scriptFiles) {
+            if (sf.content) {
+              const meta = parseYamlBasic(sf.content);
+              state.scripts[sf.name] = {
+                name: meta.name || sf.name.replace(/\.ya?ml$/i, ''),
+                content: sf.content,
+                parameters: meta.parameters,
+                captures: meta.captures,
+                parameterDefaults: meta.parameterDefaults
+              };
+            }
+          }
+          renderScripts();
+          renderCanvas();
+        }).catch(() => { /* scripts optional */ });
+
+      // Load usernames from users.json / users.sample.json
+      fetch(`/api/projects/${encodeURIComponent(msg.project)}/users`)
+        .then(r => r.ok ? r.json() : null)
+        .then(usersData => {
+          if (usersData) {
+            for (const [role, info] of Object.entries(usersData)) {
+              if (state.users[role] && info.username) {
+                state.users[role].username = info.username;
+              }
+            }
+            renderUsers();
+          }
+        }).catch(() => { /* users optional */ });
+
       activateProject(msg.project, msg.environment || null);
     } else {
       renderCanvas();
@@ -3939,8 +4016,8 @@ function renderCatalogEditor() {
   const cur = state.workflow.catalog || {};
 
   let html = `<div class="cat-ed-meta">
-    <div class="field-group"><label>Catalog Name</label><input id="cat-ed-name" value="${escHtml(cat.name || '')}" placeholder="e.g. 4PS Test Catalog"></div>
-    <div class="field-group"><label>Description</label><input id="cat-ed-desc" value="${escHtml(cat.description || '')}" placeholder="Optional description"></div>
+    <div class="field-group"><label>Catalog Name ${fieldTip('Display name for the whole test catalog. Shown in reports and UI.')}</label><input id="cat-ed-name" value="${escHtml(cat.name || '')}" placeholder="e.g. 4PS Test Catalog"></div>
+    <div class="field-group"><label>Description ${fieldTip('Optional description of the catalog scope or purpose.')}</label><input id="cat-ed-desc" value="${escHtml(cat.description || '')}" placeholder="Optional description"></div>
   </div>`;
 
   if (!cat.value_chains) cat.value_chains = [];
@@ -3961,9 +4038,9 @@ function renderCatalogEditor() {
 
     if (vcEditing) {
       html += `<div class="cat-ed-form">
-        <input class="short" id="cat-ed-vc-code" value="${escHtml(vc.code || '')}" placeholder="Code" maxlength="10" style="text-transform:uppercase">
-        <input class="med" id="cat-ed-vc-name" value="${escHtml(vc.name || '')}" placeholder="Name">
-        <input class="med" id="cat-ed-vc-desc" value="${escHtml(vc.description || '')}" placeholder="Description (optional)">
+        <input class="short" id="cat-ed-vc-code" value="${escHtml(vc.code || '')}" placeholder="Code" maxlength="10" style="text-transform:uppercase" title="Short uppercase code (max 10 chars). Used as composite code prefix, e.g. PRJ.">
+        <input class="med" id="cat-ed-vc-name" value="${escHtml(vc.name || '')}" placeholder="Name" title="Display name for this value chain, e.g. Projecten.">
+        <input class="med" id="cat-ed-vc-desc" value="${escHtml(vc.description || '')}" placeholder="Description (optional)" title="Optional description of this value chain.">
         <div class="form-btns"><button class="btn-primary" onclick="catSaveVc(${v})">Done</button></div>
       </div>`;
     }
@@ -3986,9 +4063,9 @@ function renderCatalogEditor() {
 
       if (typeEditing) {
         html += `<div class="cat-ed-form">
-          <input class="short" id="cat-ed-type-code" value="${escHtml(type.code || '')}" placeholder="Code" maxlength="10" style="text-transform:uppercase">
-          <input class="med" id="cat-ed-type-name" value="${escHtml(type.name || '')}" placeholder="Name">
-          <input class="med" id="cat-ed-type-desc" value="${escHtml(type.description || '')}" placeholder="Description (optional)">
+          <input class="short" id="cat-ed-type-code" value="${escHtml(type.code || '')}" placeholder="Code" maxlength="10" style="text-transform:uppercase" title="Short uppercase code (max 10 chars). Combined with parent, e.g. PRJ-TM.">
+          <input class="med" id="cat-ed-type-name" value="${escHtml(type.name || '')}" placeholder="Name" title="Display name for this type, e.g. Termijnmotivering or Regie.">
+          <input class="med" id="cat-ed-type-desc" value="${escHtml(type.description || '')}" placeholder="Description (optional)" title="Optional description of this project type.">
           <div class="form-btns"><button class="btn-primary" onclick="catSaveType(${v},${t})">Done</button></div>
         </div>`;
       }
@@ -4014,16 +4091,30 @@ function renderCatalogEditor() {
 
         if (pfEditing) {
           html += `<div class="cat-ed-form" style="border-top:1px solid var(--border)">
-            <input class="short" id="cat-ed-pf-code" value="${escHtml(pf.code || '')}" placeholder="Code" maxlength="10" style="text-transform:uppercase">
-            <input class="med" id="cat-ed-pf-name" value="${escHtml(pf.name || '')}" placeholder="Name">
-            <input class="med" id="cat-ed-pf-desc" value="${escHtml(pf.description || '')}" placeholder="Description (optional)">
-            <input class="wide" id="cat-ed-pf-path" value="${escHtml(pf.workflow_path || '')}" placeholder="Workflow path (e.g. ./PO Approval Workflow)">
+            <input class="short" id="cat-ed-pf-code" value="${escHtml(pf.code || '')}" placeholder="Code" maxlength="10" style="text-transform:uppercase" title="Short uppercase code (max 10 chars). Full composite code: PRJ-TM-PO-APPR.">
+            <input class="med" id="cat-ed-pf-name" value="${escHtml(pf.name || '')}" placeholder="Name" title="Display name for this process flow, e.g. PO Approval.">
+            <input class="med" id="cat-ed-pf-desc" value="${escHtml(pf.description || '')}" placeholder="Description (optional)" title="Optional description of what this process flow tests.">
+            <input class="wide" id="cat-ed-pf-path" value="${escHtml(pf.workflow_path || '')}" placeholder="Workflow path (e.g. ./PO Approval Workflow)" title="Relative path from catalog.json to the project folder containing workflow.json.">
             <div class="form-btns"><button class="btn-primary" onclick="catSavePf(${v},${t},${p})">Done</button></div>
           </div>`;
         }
       }
 
-      html += `<div class="cat-ed-add" onclick="catAddPf(${v},${t})">+ Process Flow</div>`;
+      html += `<div style="display:flex;gap:12px;align-items:center">
+        <div class="cat-ed-add" onclick="catAddPf(${v},${t})">+ New Process Flow</div>
+        <div class="cat-ed-add" onclick="catAddExistingPf(${v},${t})" style="color:#2563eb">&#128279; Link Existing Workflow</div>
+      </div>`;
+      // Existing workflow picker (shown/hidden by catAddExistingPf)
+      html += `<div id="cat-ed-existing-picker-${v}-${t}" class="cat-ed-existing-picker hidden">
+        <div style="font-size:11px;font-weight:600;margin-bottom:6px">Select a project folder with a workflow.json:</div>
+        <select id="cat-ed-existing-select-${v}-${t}" onchange="catApplyExistingPf(${v},${t},this.value)">
+          <option value="">-- loading projects... --</option>
+        </select>
+        <div class="picker-hint">Only projects with a workflow.json are shown. Already-cataloged projects are marked.</div>
+        <div style="margin-top:6px;display:flex;gap:4px">
+          <button class="btn-sm" onclick="document.getElementById('cat-ed-existing-picker-${v}-${t}').classList.add('hidden')">Cancel</button>
+        </div>
+      </div>`;
       html += `</div>`; // type-block
     }
 
@@ -4131,6 +4222,94 @@ function catRemovePf(v, t, p) {
   state.catalog.value_chains[v].types[t].process_flows.splice(p, 1);
   _catEditNode = null;
   renderCatalogEditor();
+}
+
+/** Show the existing-workflow picker for a type, loading projects from the server */
+async function catAddExistingPf(v, t) {
+  _catSyncMeta();
+  const pickerId = `cat-ed-existing-picker-${v}-${t}`;
+  const selectId = `cat-ed-existing-select-${v}-${t}`;
+  const pickerEl = document.getElementById(pickerId);
+  const selectEl = document.getElementById(selectId);
+  if (!pickerEl || !selectEl) return;
+
+  // Show picker
+  pickerEl.classList.remove('hidden');
+
+  // Collect already-cataloged paths
+  const catalogedPaths = new Set();
+  if (state.catalog && state.catalog.value_chains) {
+    for (const vc of state.catalog.value_chains) {
+      for (const tp of (vc.types || [])) {
+        for (const pf of (tp.process_flows || [])) {
+          if (pf.workflow_path) catalogedPaths.add(pf.workflow_path.replace(/^\.\//, ''));
+        }
+      }
+    }
+  }
+
+  // Fetch projects from server
+  try {
+    const res = await fetch('/api/projects');
+    if (!res.ok) { toast('Could not load projects from server', 'error'); return; }
+    const projects = await res.json();
+    const withWorkflow = projects.filter(p => p.hasWorkflow);
+
+    if (!withWorkflow.length) {
+      selectEl.innerHTML = '<option value="">-- no projects with workflow.json found --</option>';
+      return;
+    }
+
+    selectEl.innerHTML = '<option value="">-- select project --</option>' +
+      withWorkflow.map(p => {
+        const inCatalog = catalogedPaths.has(p.name);
+        return `<option value="${escAttr(p.name)}">${escHtml(p.name)}${inCatalog ? ' (already in catalog)' : ''}</option>`;
+      }).join('');
+  } catch (e) {
+    selectEl.innerHTML = '<option value="">-- server not reachable --</option>';
+    toast(`Failed to load projects: ${e.message}`, 'error');
+  }
+}
+
+/** When a project is selected, fetch its workflow.json and auto-fill a new process flow entry */
+async function catApplyExistingPf(v, t, projectName) {
+  if (!projectName) return;
+  _catSyncMeta();
+
+  // Try to load workflow.json for name info
+  let wfName = projectName;
+  let wfDesc = '';
+  try {
+    const wfRes = await fetch(`/api/projects/${encodeURIComponent(projectName)}/workflow`);
+    if (wfRes.ok) {
+      const wfData = await wfRes.json();
+      if (wfData.name) wfName = wfData.name;
+      if (wfData.description) wfDesc = wfData.description;
+    }
+  } catch { /* ignore, use folder name */ }
+
+  // Generate a code from the project name (uppercase, max 10 chars, only A-Z0-9-)
+  const autoCode = projectName
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 10);
+
+  // Add the process flow entry
+  if (!state.catalog.value_chains[v].types[t].process_flows) {
+    state.catalog.value_chains[v].types[t].process_flows = [];
+  }
+  state.catalog.value_chains[v].types[t].process_flows.push({
+    code: autoCode,
+    name: wfName,
+    description: wfDesc,
+    workflow_path: `./${projectName}`
+  });
+
+  const idx = state.catalog.value_chains[v].types[t].process_flows.length - 1;
+  _catEditNode = { level: 'pf', v, t, p: idx };
+  renderCatalogEditor();
+  toast(`Linked "${projectName}" — review the code and name, then click Done`, 'success');
 }
 
 // --- Save / Export / Import / New ---

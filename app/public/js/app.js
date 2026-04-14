@@ -1189,9 +1189,9 @@ function renderCatalog() {
 
     if (vcEditing) {
       html += `<div class="cat-edit-form">
-        <input class="input input-sm" id="cat-ed-vc-code" value="${esc(vc.code || '')}" placeholder="Code (e.g. PRJ)" maxlength="10" style="width:100px;text-transform:uppercase">
-        <input class="input input-sm" id="cat-ed-vc-name" value="${esc(vc.name || '')}" placeholder="Name" style="flex:1">
-        <input class="input input-sm" id="cat-ed-vc-desc" value="${esc(vc.description || '')}" placeholder="Description" style="flex:1">
+        <input class="input input-sm" id="cat-ed-vc-code" value="${esc(vc.code || '')}" placeholder="Code (e.g. PRJ)" maxlength="10" style="width:100px;text-transform:uppercase" title="Short uppercase code (max 10 chars). Used as composite code prefix, e.g. PRJ.">
+        <input class="input input-sm" id="cat-ed-vc-name" value="${esc(vc.name || '')}" placeholder="Name" style="flex:1" title="Display name for this value chain, e.g. Projecten.">
+        <input class="input input-sm" id="cat-ed-vc-desc" value="${esc(vc.description || '')}" placeholder="Description" style="flex:1" title="Optional description of this value chain.">
         <button class="btn btn-primary btn-sm" onclick="catSaveVc(${v})">Done</button>
       </div>`;
     }
@@ -1214,9 +1214,9 @@ function renderCatalog() {
 
       if (typeEditing) {
         html += `<div class="cat-edit-form">
-          <input class="input input-sm" id="cat-ed-type-code" value="${esc(type.code || '')}" placeholder="Code" maxlength="10" style="width:100px;text-transform:uppercase">
-          <input class="input input-sm" id="cat-ed-type-name" value="${esc(type.name || '')}" placeholder="Name" style="flex:1">
-          <input class="input input-sm" id="cat-ed-type-desc" value="${esc(type.description || '')}" placeholder="Description" style="flex:1">
+          <input class="input input-sm" id="cat-ed-type-code" value="${esc(type.code || '')}" placeholder="Code" maxlength="10" style="width:100px;text-transform:uppercase" title="Short uppercase code (max 10 chars). Combined with parent, e.g. PRJ-TM.">
+          <input class="input input-sm" id="cat-ed-type-name" value="${esc(type.name || '')}" placeholder="Name" style="flex:1" title="Display name for this type, e.g. Termijnmotivering.">
+          <input class="input input-sm" id="cat-ed-type-desc" value="${esc(type.description || '')}" placeholder="Description" style="flex:1" title="Optional description of this project type.">
           <button class="btn btn-primary btn-sm" onclick="catSaveType(${v},${t})">Done</button>
         </div>`;
       }
@@ -1238,15 +1238,28 @@ function renderCatalog() {
 
         if (pfEditing) {
           html += `<div class="cat-edit-form">
-            <input class="input input-sm" id="cat-ed-pf-code" value="${esc(pf.code || '')}" placeholder="Code" maxlength="10" style="width:100px;text-transform:uppercase">
-            <input class="input input-sm" id="cat-ed-pf-name" value="${esc(pf.name || '')}" placeholder="Name" style="flex:1">
-            <input class="input input-sm" id="cat-ed-pf-desc" value="${esc(pf.description || '')}" placeholder="Description" style="flex:1">
+            <input class="input input-sm" id="cat-ed-pf-code" value="${esc(pf.code || '')}" placeholder="Code" maxlength="10" style="width:100px;text-transform:uppercase" title="Short uppercase code (max 10 chars). Full composite: PRJ-TM-PO-APPR.">
+            <input class="input input-sm" id="cat-ed-pf-name" value="${esc(pf.name || '')}" placeholder="Name" style="flex:1" title="Display name for this process flow, e.g. PO Approval.">
+            <input class="input input-sm" id="cat-ed-pf-desc" value="${esc(pf.description || '')}" placeholder="Description" style="flex:1" title="Optional description of what this process flow tests.">
             <button class="btn btn-primary btn-sm" onclick="catSavePf(${v},${t},${p})">Done</button>
             <button class="btn btn-primary btn-sm" onclick="catSavePfAndOpen(${v},${t},${p})">Save & Open</button>
           </div>`;
         }
       }
-      html += `<div class="cat-add-link" onclick="catAddPf(${v},${t})">+ Process Flow</div>`;
+      html += `<div class="cat-add-row">
+        <span class="cat-add-link" style="padding:0" onclick="catAddPf(${v},${t})">+ New Process Flow</span>
+        <span class="cat-link-existing" onclick="catLinkExisting(${v},${t})">&#128279; Link Existing Workflow</span>
+      </div>`;
+      html += `<div id="cat-existing-picker-${v}-${t}" class="cat-existing-picker" style="display:none">
+        <strong>Select a project folder with a workflow.json:</strong>
+        <select id="cat-existing-select-${v}-${t}" onchange="catApplyExisting(${v},${t},this.value)">
+          <option value="">-- loading... --</option>
+        </select>
+        <div class="picker-hint">Only projects with workflow.json are shown. Already-cataloged ones are marked.</div>
+        <div class="picker-actions">
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('cat-existing-picker-${v}-${t}').style.display='none'">Cancel</button>
+        </div>
+      </div>`;
       html += `</div>`; // type-block
     }
     html += `<div class="cat-add-link" onclick="catAddType(${v})">+ Type</div>`;
@@ -1336,6 +1349,66 @@ function catAddPf(v, t) {
   catEditNode = { level: 'pf', v, t, p: catalog.value_chains[v].types[t].process_flows.length - 1 }; renderCatalog();
 }
 
+/** Show the existing-workflow picker, fetching projects from the server */
+async function catLinkExisting(v, t) {
+  syncCatalogMeta();
+  const pickerId = `cat-existing-picker-${v}-${t}`;
+  const selectId = `cat-existing-select-${v}-${t}`;
+  const pickerEl = document.getElementById(pickerId);
+  const selectEl = document.getElementById(selectId);
+  if (!pickerEl || !selectEl) return;
+  pickerEl.style.display = 'block';
+
+  // Collect already-cataloged workflow paths
+  const cataloged = new Set();
+  if (catalog && catalog.value_chains) {
+    for (const vc of catalog.value_chains)
+      for (const tp of (vc.types || []))
+        for (const pf of (tp.process_flows || []))
+          if (pf.workflow_path) cataloged.add(pf.workflow_path.replace(/^\.\//,''));
+  }
+
+  try {
+    const projects = await GET('/projects');
+    const withWf = projects.filter(p => p.hasWorkflow);
+    if (!withWf.length) {
+      selectEl.innerHTML = '<option value="">-- no projects with workflow.json --</option>';
+      return;
+    }
+    selectEl.innerHTML = '<option value="">-- select project --</option>' +
+      withWf.map(p => {
+        const inCat = cataloged.has(p.name);
+        return `<option value="${esc(p.name)}">${esc(p.name)}${inCat ? ' (already in catalog)' : ''}</option>`;
+      }).join('');
+  } catch (e) {
+    selectEl.innerHTML = '<option value="">-- server not reachable --</option>';
+  }
+}
+
+/** When a project is picked, fetch its workflow.json and add a pre-filled process flow */
+async function catApplyExisting(v, t, projectName) {
+  if (!projectName) return;
+  syncCatalogMeta();
+
+  let wfName = projectName, wfDesc = '';
+  try {
+    const wf = await GET(`/projects/${encodeURIComponent(projectName)}/workflow`);
+    if (wf.name) wfName = wf.name;
+    if (wf.description) wfDesc = wf.description;
+  } catch { /* use folder name */ }
+
+  const autoCode = projectName.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 10);
+
+  if (!catalog.value_chains[v].types[t].process_flows)
+    catalog.value_chains[v].types[t].process_flows = [];
+  catalog.value_chains[v].types[t].process_flows.push({
+    code: autoCode, name: wfName, description: wfDesc, workflow_path: './' + projectName
+  });
+  const idx = catalog.value_chains[v].types[t].process_flows.length - 1;
+  catEditNode = { level: 'pf', v, t, p: idx };
+  renderCatalog();
+}
+
 // Open an existing process flow workflow in the Workflow Designer
 async function catOpenPfWorkflow(v, t, p) {
   const pf = catalog.value_chains[v].types[t].process_flows[p];
@@ -1407,6 +1480,11 @@ function esc(s) {
   return String(s ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/** Render a ? tooltip icon. Usage: `${tip('Your help text')}` */
+function tip(text) {
+  return `<span class="field-tip" tabindex="0">?<span class="field-tip-text">${esc(text)}</span></span>`;
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────

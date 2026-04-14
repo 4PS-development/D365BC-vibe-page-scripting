@@ -667,6 +667,50 @@ label small { font-weight: 400; color: var(--text-muted); }
 }
 .cat-add-link:hover { text-decoration: underline; }
 
+.cat-add-row {
+  display: flex; gap: 12px; align-items: center;
+  padding: 4px 12px 8px;
+}
+.cat-link-existing {
+  font-size: 11px; color: #2563eb; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.cat-link-existing:hover { text-decoration: underline; }
+
+.cat-existing-picker {
+  margin: 0 12px 8px; padding: 10px 12px;
+  background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius);
+  font-size: 12px;
+}
+.cat-existing-picker select { width: 100%; margin-top: 6px; padding: 5px 8px; font-size: 12px; }
+.cat-existing-picker .picker-hint { font-size: 10px; color: #1e40af; margin-top: 4px; }
+.cat-existing-picker .picker-actions { margin-top: 8px; display: flex; gap: 6px; }
+
+/* ── Field Tips (? icons) ──────────────────────────────────────────────── */
+.field-tip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 50%; font-size: 10px; font-weight: 700;
+  color: var(--text-muted); border: 1px solid var(--border); background: var(--surface-2);
+  cursor: help; position: relative; vertical-align: middle; margin-left: 5px;
+  line-height: 1; flex-shrink: 0;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.field-tip:hover { color: var(--primary); border-color: var(--primary); background: #fde8ea; }
+.field-tip .field-tip-text {
+  display: none; position: absolute; left: 50%; bottom: calc(100% + 8px);
+  transform: translateX(-50%); width: 240px; padding: 8px 10px;
+  background: var(--header-bg); color: #fff; font-size: 11px; font-weight: 400;
+  border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.25);
+  line-height: 1.5; z-index: 50; pointer-events: none; text-align: left;
+  white-space: normal;
+}
+.field-tip .field-tip-text::after {
+  content: ''; position: absolute; left: 50%; top: 100%;
+  transform: translateX(-50%); border: 6px solid transparent;
+  border-top-color: var(--header-bg);
+}
+.field-tip:hover .field-tip-text { display: block; }
+
 /* ── Tips & Tricks page ──────────────────────────────────────────────────── */
 .tips-intro {
   font-size: 14px;

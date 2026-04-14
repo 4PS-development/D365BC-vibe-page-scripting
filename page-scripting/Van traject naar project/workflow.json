@@ -1,18 +1,13 @@
 {
+  "$schema": "./workflow.schema.json",
   "name": "Van traject naar project",
   "description": "Volledig traject: aanmaken traject, overdracht, projectkaart inrichten.",
-  "catalog": {
-    "value_chain": "PRJ",
-    "type": "VG",
-    "process_flow": "TRAJECT"
-  },
-  "bc_url": "https://4psconstruct.bc.dynamics.com/d163e125-e357-46fa-885a-ca549208b546/VG-Test",
+  "bc_url": "https://4psconstruct.bc.dynamics.com/8f94bd30-45c4-40a9-9898-8dd15063a020/FpsDemo",
   "steps": [
     {
       "id": "step-1",
       "name": "Step 1",
       "user": "Acquisiteur",
-      "script": "./scripts/Van aanmaken traject tot en met overdracht van project.yml",
       "capture": {
         "try_out_successor_project_no": "Try-out Successor - Project No."
       }
@@ -21,7 +16,6 @@
       "id": "step-2",
       "name": "Step 2",
       "user": "VG Project Controller",
-      "script": "./scripts/Project aanmaken (projectkaart inrichten).yml",
       "depends_on": "step-1"
     }
   ]

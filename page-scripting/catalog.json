@@ -22,6 +22,12 @@
               "name": "Standaard project aanmaken",
               "description": "",
               "workflow_path": "./Standaard project aanmaken"
+            },
+            {
+              "code": "PURCHASE-O",
+              "name": "Purchase Order Approval Process",
+              "description": "Multi-user workflow: Purchaser creates PO, Approver approves it",
+              "workflow_path": "./Purchase Order Approval Process"
             }
           ]
         }
